@@ -70,8 +70,8 @@ def train(
 ) -> tuple[ParticleNet, TrainLog]:
     """Train on freshly simulated particles every step (no fixed training set)."""
     torch.manual_seed(seed)
-    gen = torch.Generator().manual_seed(seed)
-    model = ParticleNet(len(sim.keys), units)
+    gen = torch.Generator(device=sim.device).manual_seed(seed)
+    model = ParticleNet(len(sim.keys), units).to(sim.device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=steps)
     log, t0, run_loss, run_acc = TrainLog(), time.time(), 0.0, 0.0
@@ -102,15 +102,15 @@ def train(
 def evaluate(model: ParticleNet, sim: ParticleSimulator, per_class: int = 400, seed: int = 1,
              batch: int = 500) -> np.ndarray:
     """Confusion matrix [true, predicted] on freshly simulated particles."""
-    gen = torch.Generator().manual_seed(seed)
+    gen = torch.Generator(device=sim.device).manual_seed(seed)
     n_cls = len(sim.keys)
-    labels = torch.arange(n_cls).repeat_interleave(per_class)
+    labels = torch.arange(n_cls, device=sim.device).repeat_interleave(per_class)
     conf = np.zeros((n_cls, n_cls), dtype=np.int64)
     for i in range(0, len(labels), batch):
         y = labels[i:i + batch]
         x, _ = sim.sample(len(y), gen, labels=y)
         pred = model(x).argmax(1)
-        np.add.at(conf, (y.numpy(), pred.numpy()), 1)
+        np.add.at(conf, (y.cpu().numpy(), pred.cpu().numpy()), 1)
     return conf
 
 

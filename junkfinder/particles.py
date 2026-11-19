@@ -72,9 +72,11 @@ class Microscope:
 class ParticleSimulator:
     """Turns precomputed thickness views into noisy CTF-modulated particles."""
 
-    def __init__(self, views: dict[str, np.ndarray], scope: Microscope, background: bool = True):
+    def __init__(self, views: dict[str, np.ndarray], scope: Microscope, background: bool = True,
+                 device: str | torch.device = "cpu"):
+        self.device = torch.device(device)
         self.keys = list(views) + (["background"] if background else [])
-        self.views = [torch.from_numpy(v) for v in views.values()]
+        self.views = [torch.from_numpy(v).to(self.device) for v in views.values()]
         self.scope = scope
         self.box = next(iter(views.values())).shape[-1]
         self.background = background
@@ -82,7 +84,7 @@ class ParticleSimulator:
         self.k2_pad = self._k2(2 * self.box)  # CTF is applied on a 2x padded box (no wrap-around)
 
     def _k2(self, n: int) -> torch.Tensor:
-        k = torch.fft.fftfreq(n, d=self.scope.apix)
+        k = torch.fft.fftfreq(n, d=self.scope.apix, device=self.device)
         return (k[:, None] ** 2 + k[None, :] ** 2).float()
 
     def ctf(self, defocus_A: torch.Tensor, k2: torch.Tensor) -> torch.Tensor:
@@ -93,19 +95,19 @@ class ParticleSimulator:
         return np.sqrt(1 - a * a) * torch.sin(chi) + a * torch.cos(chi)
 
     def _pick_views(self, labels: torch.Tensor, gen: torch.Generator) -> torch.Tensor:
-        imgs = torch.zeros(len(labels), self.box, self.box)
+        imgs = torch.zeros(len(labels), self.box, self.box, device=self.device)
         for c, v in enumerate(self.views):
             idx = (labels == c).nonzero().flatten()
             if len(idx):
-                j = torch.randint(len(v), (len(idx),), generator=gen)
+                j = torch.randint(len(v), (len(idx),), generator=gen, device=self.device)
                 imgs[idx] = v[j]
         return imgs
 
     def _rotate_shift(self, imgs: torch.Tensor, shift_px: torch.Tensor, gen: torch.Generator) -> torch.Tensor:
         b = len(imgs)
-        ang = torch.rand(b, generator=gen) * 2 * np.pi
+        ang = torch.rand(b, generator=gen, device=self.device) * 2 * np.pi
         cos, sin = torch.cos(ang), torch.sin(ang)
-        theta = torch.zeros(b, 2, 3)
+        theta = torch.zeros(b, 2, 3, device=self.device)
         theta[:, 0, 0], theta[:, 0, 1], theta[:, 1, 0], theta[:, 1, 1] = cos, -sin, sin, cos
         theta[:, :, 2] = shift_px * (2.0 / self.box)
         grid = F.affine_grid(theta, (b, 1, self.box, self.box), align_corners=False)
@@ -113,32 +115,33 @@ class ParticleSimulator:
 
     def sample(self, n: int, gen: torch.Generator, labels: torch.Tensor | None = None):
         """Return (images [n,1,box,box] float32, labels [n] long)."""
-        s, box = self.scope, self.box
+        s, box, dev = self.scope, self.box, self.device
         n_cls = len(self.keys)
         if labels is None:
-            labels = torch.randint(n_cls, (n,), generator=gen)
+            labels = torch.randint(n_cls, (n,), generator=gen, device=dev)
         n_struct = len(self.views)
-        struct_labels = labels.clone()
+        struct_labels = labels.to(dev).clone()
         is_bg = labels >= n_struct
         struct_labels[is_bg] = 0
 
-        shift = (torch.rand(n, 2, generator=gen) * 2 - 1) * (s.max_shift_A / s.apix)
+        shift = (torch.rand(n, 2, generator=gen, device=dev) * 2 - 1) * (s.max_shift_A / s.apix)
         t = self._rotate_shift(self._pick_views(struct_labels, gen), shift, gen)
         t[is_bg] = 0.0
 
         # Neighbouring particle, centred 0.55-0.8 box away (background picks get one more often).
-        p = torch.where(is_bg, torch.full((n,), max(0.5, s.p_neighbour)), torch.full((n,), s.p_neighbour))
-        has_nb = torch.rand(n, generator=gen) < p
+        p = torch.where(is_bg, torch.full((n,), max(0.5, s.p_neighbour), device=dev),
+                        torch.full((n,), s.p_neighbour, device=dev))
+        has_nb = torch.rand(n, generator=gen, device=dev) < p
         if has_nb.any():
             m = int(has_nb.sum())
-            nb_lab = torch.randint(n_struct, (m,), generator=gen)
-            ang = torch.rand(m, generator=gen) * 2 * np.pi
-            r = (0.55 + 0.25 * torch.rand(m, generator=gen)) * box
+            nb_lab = torch.randint(n_struct, (m,), generator=gen, device=dev)
+            ang = torch.rand(m, generator=gen, device=dev) * 2 * np.pi
+            r = (0.55 + 0.25 * torch.rand(m, generator=gen, device=dev)) * box
             nb_shift = torch.stack([r * torch.cos(ang), r * torch.sin(ang)], 1)
             t[has_nb] += self._rotate_shift(self._pick_views(nb_lab, gen), nb_shift, gen)
 
         # Slow ice-thickness variation (random field low-passed to ~1/4 box).
-        ice = torch.randn(n, box, box, generator=gen)
+        ice = torch.randn(n, box, box, generator=gen, device=dev)
         lp = torch.exp(-self.k2 * (box * s.apix / 4) ** 2 * 2)
         ice = torch.fft.ifft2(torch.fft.fft2(ice) * lp).real
         ice = ice / ice.flatten(1).std(1)[:, None, None].clamp_min(1e-6) * s.ice_rms_A
@@ -147,20 +150,20 @@ class ParticleSimulator:
         phase = SIGMA_E_300KV * s.delta_v * (t - 0.5 * ice)
 
         lo, hi = s.defocus_um
-        defocus = (lo + (hi - lo) * torch.rand(n, generator=gen)) * 1e4
+        defocus = (lo + (hi - lo) * torch.rand(n, generator=gen, device=dev)) * 1e4
         q = box // 2
         padded = F.pad(phase[:, None], (q, q, q, q), mode="reflect")[:, 0]  # no step at the edge
         contrast = torch.fft.ifft2(torch.fft.fft2(padded) * self.ctf(defocus, self.k2_pad)).real
         contrast = contrast[:, q:q + box, q:q + box]
         if isinstance(s.dose, (tuple, list)):
-            dose = s.dose[0] + (s.dose[1] - s.dose[0]) * torch.rand(n, generator=gen)
+            dose = s.dose[0] + (s.dose[1] - s.dose[0]) * torch.rand(n, generator=gen, device=dev)
         else:
-            dose = torch.full((n,), float(s.dose))
+            dose = torch.full((n,), float(s.dose), device=dev)
         dose_px = (dose * s.apix**2)[:, None, None]
         # Image in electrons is dose_px * (1 - 2 contrast) + noise(var = dose_px);
         # normalise by the noise sd: signal = -2 * contrast * sqrt(dose_px).
-        img = -2.0 * contrast * dose_px.sqrt() + torch.randn(n, box, box, generator=gen)
-        return img[:, None].float(), labels
+        img = -2.0 * contrast * dose_px.sqrt() + torch.randn(n, box, box, generator=gen, device=dev)
+        return img[:, None].float(), labels.to(dev)
 
 
 def build_views(

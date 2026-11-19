@@ -133,6 +133,9 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     from .structures import load_atoms
 
     torch.set_num_threads(args.threads or torch.get_num_threads())
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}" + (f" ({torch.cuda.get_device_name(device)})" if device.startswith("cuda") else
+                                 f" ({torch.get_num_threads()} threads)"), flush=True)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     catalog = [c for c in get_catalog(args.organism) if c.pdb_id]
@@ -149,7 +152,7 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     test_views = build_views(structs, args.test_views, args.box, args.apix, rng=np.random.default_rng(123))
 
     scope = Microscope(apix=args.apix, dose=(args.dose_min, args.dose_max))
-    sim = ParticleSimulator(train_views, scope)
+    sim = ParticleSimulator(train_views, scope, device=device)
     print(f"Training ({args.steps} steps of {args.batch}, dose {args.dose_min}-{args.dose_max} e/Å²)...")
     model, log = train(sim, steps=args.steps, batch=args.batch, units=args.units)
     torch.save({"state_dict": model.state_dict(), "keys": sim.keys, "units": args.units,
@@ -158,7 +161,7 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     summary = {"keys": sim.keys, "train_log": dataclasses.asdict(log), "eval": {}}
     text = []
     for dose in args.eval_doses:
-        test_sim = ParticleSimulator(test_views, dataclasses.replace(scope, dose=dose))
+        test_sim = ParticleSimulator(test_views, dataclasses.replace(scope, dose=dose), device=device)
         conf = evaluate(model, test_sim, per_class=args.eval_per_class)
         np.savetxt(out / f"confusion_dose{dose:g}.tsv", conf, fmt="%d", delimiter="\t",
                    header="\t".join(sim.keys))
@@ -238,6 +241,7 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--eval-doses", type=float, nargs="+", default=[10.0, 20.0, 40.0])
     s.add_argument("--eval-per-class", type=int, default=400)
     s.add_argument("--threads", type=int)
+    s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")
     s.set_defaults(func=cmd_particle_benchmark)
 
     args = p.parse_args(argv)

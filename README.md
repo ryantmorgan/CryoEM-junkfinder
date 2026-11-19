@@ -160,6 +160,11 @@ at) rather than only 2D class averages.
 junkfinder particle-benchmark --cache structures --out particle_benchmark
 ```
 
+It uses a GPU automatically when PyTorch can see one (`--device` overrides
+this). On a SLURM cluster, `sbatch scripts/particle_benchmark.slurm` runs a
+longer job; edit its header for your partition and environment. Override the
+defaults with variables, e.g. `STEPS=40000 APIX=3.0 BOX=128 sbatch ...`.
+
 ### Results (first run, CPU, 64 px at 6 Å/px, 3000 steps of 128)
 
 Test particles come from view directions not seen in training, with fresh

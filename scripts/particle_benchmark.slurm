@@ -13,7 +13,9 @@
 
 set -euo pipefail
 # module load cuda             # if your cluster needs it
-# source activate junkfinder   # environment with: pip install -e .[ml]
+# Use the repository's .venv if there is one (otherwise the environment active at sbatch time).
+if [ -f .venv/bin/activate ]; then source .venv/bin/activate; fi
+python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
 
 STEPS=${STEPS:-20000}
 VIEWS=${VIEWS:-3000}

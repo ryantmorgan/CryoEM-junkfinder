@@ -165,58 +165,65 @@ this). On a SLURM cluster, `sbatch scripts/particle_benchmark.slurm` runs a
 longer job; edit its header for your partition and environment. Override the
 defaults with variables, e.g. `STEPS=40000 APIX=3.0 BOX=128 sbatch ...`.
 
-### Results (first run, CPU, 64 px at 6 Å/px, 3000 steps of 128)
+### Results
 
-Test particles come from view directions not seen in training, with fresh
-noise. Chance level is 4% (24 structures plus background).
+Two runs, both at 64 px and 6 Å/px. Test particles come from view directions
+not seen in training, with fresh noise. Chance level is 4% (24 structures plus
+background).
 
-| Dose (e/Å²) | All 25 classes | OmpF/OmpC and Bfr/ferritin merged | Contaminant called "not background" | Empty picks wrongly called a contaminant |
+- **CPU run**: 3000 steps of 128 particles, 1000 training views per
+  structure, about 1.5 h on 4 CPU cores.
+- **GPU run**: 20000 steps of 256 particles, 3000 views, about 2 h on one RTX
+  6000 Ada that was shared with another job. Training accuracy reached 70%,
+  against 61% for the CPU run.
+
+| Dose (e/Å²) | All 25 classes (CPU → GPU) | OmpF/OmpC and Bfr/ferritin merged | Contaminant called "not background" | Empty picks wrongly called a contaminant |
 |---|---|---|---|---|
-| 10 | 38% | 41% | 88% | 5% |
-| 20 | 59% | 62% | 98% | 5% |
-| 40 | 72% | 75% | 99.8% | 7% |
+| 10 | 38% → 46% | 41% → 49% | 88% → 92% | 5% → 7% |
+| 20 | 59% → 67% | 62% → 71% | 98% → 98.6% | 5% → 7% |
+| 40 | 72% → 81% | 75% → 85% | 99.8% → 99.9% | 7% → 7% |
 
-At 20 e/Å², accuracy per class:
+Per-class accuracy at 40 e/Å² (GPU run):
 
-- **Recognised reliably (≥ 80%)**: 70S ribosome (100%), GroEL, OGDH E2 core,
-  T20S, Dps, Bfr, apoferritin.
-- **Middling (45–75%)**: ArnA, ATP synthase, FolE, β-gal, cyt bd, KatE, SDH,
-  KatG, AcrB, GldA.
-- **Poor (< 40%)**: PDH E1, GadB, OmpF, GlmS, aldolase, OmpC, cyo bo3. These
-  are mostly the smaller or featureless complexes (≲ 200 kDa without their
-  micelle). They are usually confused with each other, with cyt bd, or with
-  background.
+- **≥ 90%**: 70S ribosome, GroEL, OGDH E2 core, T20S, Dps, ArnA, ATP
+  synthase, β-gal, apoferritin, AcrB.
+- **80–89%**: KatE, GldA, SDH, KatG, FolE, Bfr, GadB. The longer training
+  helped this group most: GadB went from 46% to 80% and KatG from 67% to 86%.
+- **< 70%**: PDH E1 (67%), GlmS (63%), aldolase (60%), OmpF (53%), cyt bd
+  (47%), OmpC (35%), cyo bo3 (33%).
+
+At 20 e/Å² the order of the classes is the same, and the hard group sits at
+17–50%.
 
 The main confusions:
 
-- OmpF and OmpC are confused with each other, as expected from the
-  class-average test.
-- Bfr and apoferritin, both 24-mer cages, are confused with each other.
-- The 150–300 kDa set (cyo bo3, cyt bd, GlmS, PDH E1, aldolase) is confused
+- OmpF and OmpC are confused with each other (as in the class-average
+  test).
+- Bfr and apoferritin are confused with each other.
+- The 150–250 kDa set (cyo bo3, cyt bd, GlmS, PDH E1, aldolase) is confused
   among itself.
 
 How to read these numbers:
 
-- **The absolute numbers depend on the simulated SNR.** Dose and the protein
+- **The absolute numbers depend on the simulated SNR.** Dose and protein
   contrast (ΔV = 2 V) are only known roughly, and they enter as a product. So
   treat the dose axis as a "signal level" knob, not a literal dose. The
   ordering of classes and the confusions are the more robust results.
-- **The model is under-trained.** Training accuracy was still rising at the
-  end (61%, ~2 h on 4 CPUs). A longer run on a GPU should raise the middle
-  group.
 - **No detergent micelle or carbon edges are simulated**, and the background
   is idealised ice.
+- **Only 6 Å/px has been tested so far.** A run at 3 Å/px (`--apix 3.0 --box
+  128`) is the next test for the hard group.
 
 What this means for the plan:
 
 - **A per-particle "is this a known contaminant?" flag looks realistic.**
-  98% of contaminant particles were called something other than background
-  at 20 e/Å².
-- **Naming which contaminant it is works for the large, distinctive
-  complexes.**
-- **Small membrane proteins will need pooling across many particles**,
-  for example a vote over a 2D class, or real labelled data from the
-  self-training loop.
+  About 99% of contaminant particles were called something other than
+  background at 20 e/Å².
+- **Naming which contaminant it is works for most of the library at moderate
+  signal.**
+- **Small membrane proteins and the 150–250 kDa group will need more.** That
+  means finer pixels, pooling votes across a 2D class, or real labelled
+  particles from the self-training loop.
 
 ## Known limitations
 

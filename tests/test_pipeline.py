@@ -152,3 +152,15 @@ def test_library_roundtrip(library, tmp_path):
     assert [e.key for e in lib2.entries] == [e.key for e in library.entries]
     assert lib2.entries[3].kind == "target"
     np.testing.assert_allclose(lib2.entries[0].projections, library.entries[0].projections)
+
+
+def test_catalogs_combine_and_validate():
+    from junkfinder.catalog import get_catalog
+
+    both = get_catalog("ecoli, lab")
+    keys = [c.key for c in both]
+    assert "cyo_bo3" in keys and "apoferritin" in keys
+    assert len(keys) == len(set(keys))
+    assert get_catalog("ecoli,ecoli") == get_catalog("ecoli")
+    with pytest.raises(SystemExit):
+        get_catalog("yeast")

@@ -97,6 +97,12 @@ Each catalog entry lists DOIs reporting it as a co-purifying contaminant
 - Kim et al. 2026, ArnA, FolE and GldA found as off-target cryo-EM particles
   ([doi](https://doi.org/10.1107/S2059798326010302))
 
+A separate `lab` catalog covers standard test and calibration samples that can
+be carried over on shared equipment (plunge-freezers, tweezers, cassettes):
+apoferritin, β-galactosidase, aldolase and the T20S proteasome. GroEL is
+already in the E. coli catalog. Both catalogs are used by default; choose
+with `--organism ecoli`, `--organism lab` or `--organism ecoli,lab`.
+
 Small IMAC contaminants (SlyD, Fur, Crp, ArgE, YadF, GlgA, S15, BCCP) are left
 out on purpose, because they are too small to produce recognisable 2D classes.
 

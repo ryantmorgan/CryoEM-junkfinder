@@ -33,6 +33,7 @@ class Contaminant:
     alt_ids: tuple[str, ...] = field(default_factory=tuple)
     verify: bool = False
     refs: tuple[str, ...] = field(default_factory=tuple)
+    source_organism: str = "Escherichia coli"  # expected in the file, checked by 'verify'
 
 
 ECOLI: tuple[Contaminant, ...] = (
@@ -112,13 +113,42 @@ ECOLI: tuple[Contaminant, ...] = (
     ),
 )
 
-CATALOGS: dict[str, tuple[Contaminant, ...]] = {"ecoli": ECOLI}
+# Standard test and calibration samples. They are not from the expression
+# host: they get onto grids by carry-over from shared plunge-freezers,
+# tweezers, glow-dischargers, autoloader cassettes and stock tubes in
+# facilities where they are used routinely. No published reports of
+# carry-over were found, so these entries carry no refs.
+LAB: tuple[Contaminant, ...] = (
+    Contaminant(
+        "apoferritin", "Apoferritin (human heavy chain, 24-mer)", "7A4M", 480, False,
+        "The standard resolution test sample. Hollow sphere ~12 nm; looks like "
+        "bacterioferritin at low resolution.", source_organism="Homo sapiens",
+    ),
+    Contaminant(
+        "beta_gal", "beta-Galactosidase (LacZ, tetramer)", "5A1A", 465, False,
+        "Common test specimen; D2 tetramer gives distinctive rectangular views.",
+    ),
+    Contaminant(
+        "aldolase", "Rabbit muscle aldolase (tetramer)", "5VY5", 160, False,
+        "Small-particle benchmark.", source_organism="Oryctolagus cuniculus", verify=True,
+    ),
+    Contaminant(
+        "t20s", "20S proteasome (T. acidophilum)", "1PMA", 700, False,
+        "Barrel-shaped test specimen; side views look like four stacked rings.",
+        source_organism="Thermoplasma acidophilum", verify=True,
+    ),
+)
+
+CATALOGS: dict[str, tuple[Contaminant, ...]] = {"ecoli": ECOLI, "lab": LAB}
+DEFAULT_CATALOGS = "ecoli,lab"
 
 
-def get_catalog(organism: str) -> tuple[Contaminant, ...]:
-    try:
-        return CATALOGS[organism.lower()]
-    except KeyError:
-        raise SystemExit(
-            f"Unknown organism '{organism}'. Available: {', '.join(sorted(CATALOGS))}"
-        ) from None
+def get_catalog(names: str) -> tuple[Contaminant, ...]:
+    """One catalog or several, comma-separated (e.g. 'ecoli,lab'); keys de-duplicated."""
+    out: dict[str, Contaminant] = {}
+    for name in (n.strip().lower() for n in names.split(",") if n.strip()):
+        if name not in CATALOGS:
+            raise SystemExit(f"Unknown catalog '{name}'. Available: {', '.join(sorted(CATALOGS))}")
+        for c in CATALOGS[name]:
+            out.setdefault(c.key, c)
+    return tuple(out.values())

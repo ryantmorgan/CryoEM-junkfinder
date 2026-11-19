@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .catalog import CATALOGS, Contaminant, get_catalog
+from .catalog import CATALOGS, DEFAULT_CATALOGS, Contaminant, get_catalog
 from .cryosparc_io import load_class_averages
 from .library import Library, build_library
 from .structures import cached_structure, describe_structure, fetch_structure
@@ -45,7 +45,7 @@ def cmd_verify(args: argparse.Namespace) -> None:
             continue
         d = describe_structure(path)
         problems = []
-        if not any("escherichia" in o.lower() for o in d["organisms"]):
+        if not any(c.source_organism.lower() in o.lower() for o in d["organisms"]):
             problems.append(f"organism is {d['organisms'] or 'unknown'}")
         if c.approx_kda and not 0.5 <= d["approx_kda"] / c.approx_kda <= 2.0:
             problems.append(f"mass {d['approx_kda']} kDa vs expected ~{c.approx_kda}")
@@ -112,27 +112,31 @@ def cmd_screen(args: argparse.Namespace) -> None:
     print(f"\nDetails: {out / 'classes.tsv'}" + ("" if args.no_montage else f", {out / 'montage.png'}"))
 
 
+ORG_HELP = (f"Catalog(s), comma-separated. Available: {', '.join(sorted(CATALOGS))} "
+            f"(default {DEFAULT_CATALOGS})")
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="junkfinder", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("list", help="Show the contaminant catalog")
-    s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
+    s.add_argument("--organism", default=DEFAULT_CATALOGS, help=ORG_HELP)
     s.set_defaults(func=cmd_list)
 
     s = sub.add_parser("fetch", help="Download catalog structures into a folder")
-    s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
+    s.add_argument("--organism", default=DEFAULT_CATALOGS, help=ORG_HELP)
     s.add_argument("--dir", default="structures")
     s.set_defaults(func=cmd_fetch)
 
     s = sub.add_parser("verify", help="Check downloaded structures match the catalog")
-    s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
+    s.add_argument("--organism", default=DEFAULT_CATALOGS, help=ORG_HELP)
     s.add_argument("--dir", default="structures")
     s.set_defaults(func=cmd_verify)
 
     s = sub.add_parser("build-library", help="Simulate reference projections")
     s.add_argument("-o", "--output", default="library.npz")
-    s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
+    s.add_argument("--organism", default=DEFAULT_CATALOGS, help=ORG_HELP)
     s.add_argument("--only", help="Comma-separated catalog keys to include")
     s.add_argument("--target", action="append",
                    help="Model of YOUR protein (PDB/mmCIF, e.g. AlphaFold). Strongly recommended.")

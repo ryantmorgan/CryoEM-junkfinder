@@ -160,7 +160,58 @@ at) rather than only 2D class averages.
 junkfinder particle-benchmark --cache structures --out particle_benchmark
 ```
 
-Results: benchmark in progress.
+### Results (first run, CPU, 64 px at 6 Å/px, 3000 steps of 128)
+
+Test particles come from view directions not seen in training, with fresh
+noise. Chance level is 4% (24 structures plus background).
+
+| Dose (e/Å²) | All 25 classes | OmpF/OmpC and Bfr/ferritin merged | Contaminant called "not background" | Empty picks wrongly called a contaminant |
+|---|---|---|---|---|
+| 10 | 38% | 41% | 88% | 5% |
+| 20 | 59% | 62% | 98% | 5% |
+| 40 | 72% | 75% | 99.8% | 7% |
+
+At 20 e/Å², accuracy per class:
+
+- **Recognised reliably (≥ 80%)**: 70S ribosome (100%), GroEL, OGDH E2 core,
+  T20S, Dps, Bfr, apoferritin.
+- **Middling (45–75%)**: ArnA, ATP synthase, FolE, β-gal, cyt bd, KatE, SDH,
+  KatG, AcrB, GldA.
+- **Poor (< 40%)**: PDH E1, GadB, OmpF, GlmS, aldolase, OmpC, cyo bo3. These
+  are mostly the smaller or featureless complexes (≲ 200 kDa without their
+  micelle). They are usually confused with each other, with cyt bd, or with
+  background.
+
+The main confusions:
+
+- OmpF and OmpC are confused with each other, as expected from the
+  class-average test.
+- Bfr and apoferritin, both 24-mer cages, are confused with each other.
+- The 150–300 kDa set (cyo bo3, cyt bd, GlmS, PDH E1, aldolase) is confused
+  among itself.
+
+How to read these numbers:
+
+- **The absolute numbers depend on the simulated SNR.** Dose and the protein
+  contrast (ΔV = 2 V) are only known roughly, and they enter as a product. So
+  treat the dose axis as a "signal level" knob, not a literal dose. The
+  ordering of classes and the confusions are the more robust results.
+- **The model is under-trained.** Training accuracy was still rising at the
+  end (61%, ~2 h on 4 CPUs). A longer run on a GPU should raise the middle
+  group.
+- **No detergent micelle or carbon edges are simulated**, and the background
+  is idealised ice.
+
+What this means for the plan:
+
+- **A per-particle "is this a known contaminant?" flag looks realistic.**
+  98% of contaminant particles were called something other than background
+  at 20 e/Å².
+- **Naming which contaminant it is works for the large, distinctive
+  complexes.**
+- **Small membrane proteins will need pooling across many particles**,
+  for example a vote over a 2D class, or real labelled data from the
+  self-training loop.
 
 ## Known limitations
 

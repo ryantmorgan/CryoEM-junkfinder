@@ -84,9 +84,9 @@ Useful options:
 ## Catalog sources
 
 Every catalog entry has been checked against the RCSB with `junkfinder verify`
-(source organism, oligomeric state and mass). GldA uses 43WP, a 3.2 Å cryo-EM
-structure of the octamer; succinate dehydrogenase uses assembly 2 of 1NEK (the
-trimer).
+(source organism, oligomeric state and mass). Where a contaminant has been
+solved by cryo-EM from the contaminated sample itself, that structure is used
+(cytochrome bo3 6WTI, SQR 7JZ2, OmpC 7JZ3, KatG 7JZ6, GadB 7JZH, GldA 43WP).
 
 Each catalog entry lists DOIs reporting it as a co-purifying contaminant
 (`junkfinder/catalog.py`). Main sources so far:
@@ -101,6 +101,10 @@ Each catalog entry lists DOIs reporting it as a co-purifying contaminant
   ([doi](https://doi.org/10.1007/s00253-026-13820-2))
 - Kim et al. 2026, ArnA, FolE and GldA found as off-target cryo-EM particles
   ([doi](https://doi.org/10.1107/S2059798326010302))
+- Su et al. 2021, "Build and Retrieve": structures solved directly from an
+  impure His-tag membrane prep (bo3, OmpF, SQR), detergent-solubilised K12
+  membranes (OmpC, SQR) and size-selected K12 lysate (KatG, GadB)
+  ([doi](https://doi.org/10.1038/s41592-020-01021-2))
 
 A separate `lab` catalog covers standard test and calibration samples that can
 be carried over on shared equipment (plunge-freezers, tweezers, cassettes):
@@ -110,6 +114,25 @@ with `--organism ecoli`, `--organism lab` or `--organism ecoli,lab`.
 
 Small IMAC contaminants (SlyD, Fur, Crp, ArgE, YadF, GlgA, S15, BCCP) are left
 out on purpose, because they are too small to produce recognisable 2D classes.
+
+## How distinguishable are the references?
+
+Simulated class averages (6 random views of each of the 24 references at
+15 Å, rotated, shifted, inverted and noisy) are assigned to the right
+protein 143/144 times. The one miss is OmpC vs OmpF. But the gap between the
+right answer and the runner-up is small, so many correct calls come out
+`ambiguous` at the default `--min-margin 0.03`:
+
+| Pair | Typical gap | Comment |
+|---|---|---|
+| OmpF / OmpC | ~0.002 | 60% identical trimeric porins; treat as one call. |
+| Bacterioferritin / apoferritin | ~0.005-0.01 | Both 24-mer hollow spheres ~12 nm. |
+| cyt bd, GlmS, PDH E1, bo3, FolE, KatE | ~0.01-0.02 | Compact mid-size blobs. |
+| Ribosome, GroEL, OGDH E2, T20S, ATP synthase | >0.06 | Distinctive shapes, easy. |
+
+Setting `--mask-radius` to about the particle radius plus ~10 Å widens the
+gaps by about 50% (median 0.026 -> 0.039), because less empty background
+enters the correlation.
 
 ## Known limitations
 
@@ -127,6 +150,10 @@ out on purpose, because they are too small to produce recognisable 2D classes.
 ## Roadmap
 
 - [ ] Validate on a real bo3-contaminated dataset; calibrate thresholds.
+  Public raw data that could serve: EMPIAR-10737 (pure E. coli bo3 in
+  nanodiscs, 3,446 movies, 851 GB) and EMPIAR-13232/13235 (clarified E. coli
+  lysate, 7,900-9,700 movies, 2-2.4 TB each).
+- [ ] Choose the mask radius automatically from each class average.
 - [ ] Micelle/nanodisc model around TM regions (e.g. using OPM orientations).
 - [ ] Catalogs for HEK293, Sf9/High Five and yeast expression hosts.
 - [ ] Phase 2: per-particle classifier trained on simulated and EMPIAR

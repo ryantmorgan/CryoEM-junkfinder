@@ -1,0 +1,9 @@
+{
+ "id": "7JZ2",
+ "title": "Succinate: quinone oxidoreductase SQR from E.coli K12",
+ "method": "EM",
+ "resolution": 2.5,
+ "organisms": [
+  "Escherichia coli"
+ ]
+}

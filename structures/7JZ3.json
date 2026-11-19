@@ -1,0 +1,9 @@
+{
+ "id": "7JZ3",
+ "title": "Osmoporin OmpC from E.coli K12",
+ "method": "EM",
+ "resolution": 2.56,
+ "organisms": [
+  "Escherichia coli"
+ ]
+}

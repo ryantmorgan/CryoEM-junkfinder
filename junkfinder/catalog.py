@@ -38,9 +38,11 @@ class Contaminant:
 
 ECOLI: tuple[Contaminant, ...] = (
     Contaminant(
-        "cyo_bo3", "Cytochrome bo3 ubiquinol oxidase (CyoABCD)", "1FFT", 144, True,
-        "Abundant in aerobic E. coli membranes; co-purifies with many His-tagged "
-        "membrane proteins.", alt_ids=("6WTI",),
+        "cyo_bo3", "Cytochrome bo3 ubiquinol oxidase (CyoABCD)", "6WTI", 144, True,
+        "Abundant in aerobic E. coli membranes; the most abundant particle in an impure "
+        "His-tag membrane prep. 6WTI is the complete cryo-EM model solved from that "
+        "contaminant; the older X-ray structure 1FFT lacks ~25% of the complex.",
+        alt_ids=("1FFT",), refs=("10.1038/s41592-020-01021-2",),
     ),
     Contaminant(
         "acrB", "AcrB multidrug efflux pump (trimer)", "1IWG", 340, True,
@@ -51,8 +53,10 @@ ECOLI: tuple[Contaminant, ...] = (
         "Upregulated under low aeration.",
     ),
     Contaminant(
-        "sdh", "Succinate dehydrogenase (SdhCDAB, trimer)", "1NEK", 360, True,
-        "Assembly 2 is the trimer; assembly 1 is a single SdhCDAB protomer.", assembly=2,
+        "sdh", "Succinate dehydrogenase (SdhCDAB, trimer)", "7JZ2", 360, True,
+        "Second most abundant particle in detergent-solubilised K12 membranes. 7JZ2 is "
+        "the cryo-EM trimer from that sample; 1NEK (X-ray, assembly 2) is an alternative.",
+        alt_ids=("1NEK",), refs=("10.1038/s41592-020-01021-2",),
     ),
     Contaminant(
         "atp_synthase", "F1Fo ATP synthase", "6OQR", 550, True,
@@ -60,6 +64,12 @@ ECOLI: tuple[Contaminant, ...] = (
     Contaminant(
         "ompF", "OmpF porin (trimer)", "2OMF", 110, True,
         "Outer-membrane porin; survives most detergent extractions.",
+        alt_ids=("6WTZ",), refs=("10.1038/s41592-020-01021-2",),
+    ),
+    Contaminant(
+        "ompC", "OmpC osmoporin (trimer)", "7JZ3", 110, True,
+        "Most abundant particle in detergent-solubilised K12 membranes; looks very "
+        "like OmpF (60% identical).", alt_ids=("2J1N",), refs=("10.1038/s41592-020-01021-2",),
     ),
     Contaminant(
         "arnA", "ArnA bifunctional enzyme (hexamer)", "1Z7E", 450, False,
@@ -69,7 +79,7 @@ ECOLI: tuple[Contaminant, ...] = (
     Contaminant(
         "glmS", "GlmS / GFAT glucosamine-6-phosphate synthase (dimer)", "2J6H", 135, False,
         "Surface histidine clusters; persists even in LOBSTR strains.",
-        refs=("10.1016/j.bbagen.2006.03.027", "10.1002/bit.70244"),
+        refs=("10.1016/j.bbagen.2006.03.027", "10.1002/bit.70244", "10.1038/s41592-020-01021-2"),
     ),
     Contaminant(
         "pdh_E1", "Pyruvate dehydrogenase E1 (AceE, dimer)", "1L8A", 200, False,
@@ -99,6 +109,16 @@ ECOLI: tuple[Contaminant, ...] = (
         "katE", "Catalase HPII (KatE, tetramer)", "1GGE", 340, False,
         "Co-purifies with His-tagged proteins; has been crystallised in place of targets.",
         refs=("10.1007/s00253-026-13820-2",),
+    ),
+    Contaminant(
+        "katG", "Catalase-peroxidase HPI (KatG, tetramer)", "7JZ6", 320, False,
+        "Most abundant particle in size-selected (80-800 kDa) K12 lysate.",
+        refs=("10.1038/s41592-020-01021-2",),
+    ),
+    Contaminant(
+        "gadB", "Glutamate decarboxylase (GadB, hexamer)", "7JZH", 320, False,
+        "Second most abundant particle in size-selected K12 lysate; strongly induced "
+        "in acidic or stationary-phase cultures.", alt_ids=("1PMM",), refs=("10.1038/s41592-020-01021-2",),
     ),
     Contaminant(
         "dps", "Dps DNA-protection protein (12-mer)", "1DPS", 220, False,

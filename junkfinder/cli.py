@@ -8,6 +8,7 @@ from pathlib import Path
 from .catalog import CATALOGS, Contaminant, get_catalog
 from .cryosparc_io import load_class_averages
 from .library import Library, build_library
+from .structures import cached_structure, describe_structure, fetch_structure
 from .screen import screen, summarise, write_montage, write_tsv
 
 
@@ -16,6 +17,44 @@ def cmd_list(args: argparse.Namespace) -> None:
         flag = "  (verify ID)" if c.verify else ""
         kind = "membrane" if c.membrane else "soluble"
         print(f"{c.key:<14s} {c.pdb_id:<6s} ~{c.approx_kda:>5d} kDa  {kind:<8s} {c.name}{flag}")
+
+
+def cmd_fetch(args: argparse.Namespace) -> None:
+    """Download every catalog structure into a folder (run where RCSB is reachable)."""
+    out = Path(args.dir)
+    failed = []
+    for c in get_catalog(args.organism):
+        if not c.pdb_id:
+            print(f"{c.key:<14s} no structure chosen yet, skipped")
+            continue
+        try:
+            path = fetch_structure(c.pdb_id, c.assembly, out)
+            print(f"{c.key:<14s} {path}")
+        except Exception as exc:  # noqa: BLE001
+            failed.append(c.key)
+            print(f"{c.key:<14s} FAILED: {exc}")
+    print(f"\nDone. {len(failed)} failed." if failed else "\nDone.")
+
+
+def cmd_verify(args: argparse.Namespace) -> None:
+    """Check that each downloaded file is the protein the catalog says it is."""
+    for c in get_catalog(args.organism):
+        path = cached_structure(c.pdb_id, c.assembly, Path(args.dir)) if c.pdb_id else None
+        if path is None:
+            print(f"[{c.key}] {c.name}: MISSING\n")
+            continue
+        d = describe_structure(path)
+        problems = []
+        if not any("escherichia" in o.lower() for o in d["organisms"]):
+            problems.append(f"organism is {d['organisms'] or 'unknown'}")
+        if c.approx_kda and not 0.5 <= d["approx_kda"] / c.approx_kda <= 2.0:
+            problems.append(f"mass {d['approx_kda']} kDa vs expected ~{c.approx_kda}")
+        status = "CHECK: " + "; ".join(problems) if problems else "ok"
+        print(f"[{c.key}] {c.name}  ->  {path.name}: {status}")
+        print(f"    title:    {d['title']}")
+        print(f"    entities: {'; '.join(d['entities'][:6])}")
+        print(f"    organism: {', '.join(d['organisms'])}; {d['chains']} chains, "
+              f"~{d['approx_kda']} kDa protein\n")
 
 
 def cmd_build(args: argparse.Namespace) -> None:
@@ -81,6 +120,16 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
     s.set_defaults(func=cmd_list)
 
+    s = sub.add_parser("fetch", help="Download catalog structures into a folder")
+    s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
+    s.add_argument("--dir", default="structures")
+    s.set_defaults(func=cmd_fetch)
+
+    s = sub.add_parser("verify", help="Check downloaded structures match the catalog")
+    s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
+    s.add_argument("--dir", default="structures")
+    s.set_defaults(func=cmd_verify)
+
     s = sub.add_parser("build-library", help="Simulate reference projections")
     s.add_argument("-o", "--output", default="library.npz")
     s.add_argument("--organism", default="ecoli", choices=sorted(CATALOGS))
@@ -93,7 +142,7 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--box", type=int, default=96, help="Working box (px)")
     s.add_argument("--resolution", type=float, default=15.0, help="Low-pass resolution (Å)")
     s.add_argument("--angular-step", type=float, default=7.5, help="Projection spacing (deg)")
-    s.add_argument("--cache", help="Structure download cache directory")
+    s.add_argument("--cache", help="Structure folder/cache (e.g. structures/ from 'fetch')")
     s.set_defaults(func=cmd_build)
 
     s = sub.add_parser("screen", help="Compare cryoSPARC class averages to the library")

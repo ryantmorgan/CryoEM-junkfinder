@@ -88,7 +88,10 @@ def build_library(
     fetch_kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
     for c in contaminants:
-        print(f"[{c.key}] {c.name} ({c.pdb_id})", flush=True)
+        print(f"[{c.key}] {c.name} ({c.pdb_id or 'no ID'})", flush=True)
+        if not c.pdb_id and c.key not in local_structures:
+            print(f"  skipped: no structure chosen yet (use --structure {c.key}=PATH)")
+            continue
         try:
             path = local_structures.get(c.key) or fetch_structure(c.pdb_id, c.assembly, **fetch_kwargs)
             entries.append(make_entry(c.key, c.name, c.pdb_id, "contaminant", Path(path),

@@ -37,6 +37,19 @@ resembles most, and how confidently.
 pip install -e .          # numpy, scipy, gemmi, mrcfile, matplotlib
 ```
 
+## Getting the structures
+
+`build-library` downloads from the RCSB automatically. If the machine running
+it cannot reach the RCSB (e.g. a locked-down cluster), fetch them once
+somewhere that can, and commit or copy the folder:
+
+```bash
+junkfinder fetch --dir structures     # gzipped biological assemblies
+junkfinder verify --dir structures    # organism, title, mass vs catalog
+git add structures && git commit -m "Add contaminant structures"
+junkfinder build-library --cache structures ...
+```
+
 ## Use with cryoSPARC
 
 ```bash
@@ -68,6 +81,25 @@ Useful options:
 - `--only acrB,cyo_bo3`: build a smaller library.
 - `--invert yes|no`: override automatic contrast detection.
 
+## Catalog sources
+
+Each catalog entry lists DOIs reporting it as a co-purifying contaminant
+(`junkfinder/catalog.py`). Main sources so far:
+
+- Bolanos-Garcia & Davies 2006, native E. coli proteins co-purified by IMAC
+  ([doi](https://doi.org/10.1016/j.bbagen.2006.03.027))
+- Andersen et al. 2013, LOBSTR strain (ArnA, SlyD)
+  ([doi](https://doi.org/10.1002/prot.24364))
+- Truong et al. 2026, IMACulate strain (GlmS/GFAT, PDH E1)
+  ([doi](https://doi.org/10.1002/bit.70244))
+- Scholz et al. 2026, catalase contamination
+  ([doi](https://doi.org/10.1007/s00253-026-13820-2))
+- Kim et al. 2026, ArnA, FolE and GldA found as off-target cryo-EM particles
+  ([doi](https://doi.org/10.1107/S2059798326010302))
+
+Small IMAC contaminants (SlyD, Fur, Crp, ArgE, YadF, GlgA, S15, BCCP) are left
+out on purpose, because they are too small to produce recognisable 2D classes.
+
 ## Known limitations
 
 - **Detergent micelles and nanodiscs are not modelled yet.** In class averages
@@ -78,8 +110,9 @@ Useful options:
 - **Thresholds are uncalibrated.** Defaults (`--min-score 0.5`,
   `--min-margin 0.03`) are placeholders. Calibrating them on real datasets is
   the next job.
-- **Check catalog IDs marked "(verify ID)"** in `junkfinder list` against the
-  RCSB before trusting results for those entries.
+- **Check catalog IDs marked "(verify ID)"** with `junkfinder verify` after
+  fetching, before trusting results for those entries. GldA has no structure
+  chosen yet.
 - 2D only. Small proteins (<~100 kDa) and featureless blobs will often come
   out as `ambiguous`, which is the honest answer.
 

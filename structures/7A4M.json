@@ -1,0 +1,9 @@
+{
+ "id": "7A4M",
+ "title": "Cryo-EM structure of mouse heavy-chain apoferritin at 1.22 A",
+ "method": "EM",
+ "resolution": 1.22,
+ "organisms": [
+  "Mus musculus"
+ ]
+}

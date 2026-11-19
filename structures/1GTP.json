@@ -1,0 +1,9 @@
+{
+ "id": "1GTP",
+ "title": "GTP CYCLOHYDROLASE I",
+ "method": "X-ray",
+ "resolution": 3.0,
+ "organisms": [
+  "Escherichia coli"
+ ]
+}

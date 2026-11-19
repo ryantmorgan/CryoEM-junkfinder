@@ -1,0 +1,9 @@
+{
+ "id": "5VY5",
+ "title": "Rabbit muscle aldolase using 200keV",
+ "method": "EM",
+ "resolution": 2.6,
+ "organisms": [
+  "Oryctolagus cuniculus"
+ ]
+}

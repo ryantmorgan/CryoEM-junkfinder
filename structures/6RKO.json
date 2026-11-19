@@ -1,0 +1,9 @@
+{
+ "id": "6RKO",
+ "title": "Cryo-EM structure of the E. coli cytochrome bd-I oxidase at 2.68 A resolution",
+ "method": "EM",
+ "resolution": 2.68,
+ "organisms": [
+  "Escherichia coli (strain K12)"
+ ]
+}

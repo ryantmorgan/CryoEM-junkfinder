@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "junkfinder"
+version = "0.1.0"
+description = "Flag likely contaminants (e.g. E. coli cytochrome bo3, AcrB) in cryo-EM class averages"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "gemmi", "mrcfile", "matplotlib"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+junkfinder = "junkfinder.cli:main"
+
+[tool.setuptools]
+packages = ["junkfinder"]

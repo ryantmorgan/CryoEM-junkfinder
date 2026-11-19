@@ -35,6 +35,7 @@ resembles most, and how confidently.
 
 ```bash
 pip install -e .          # numpy, scipy, gemmi, mrcfile, matplotlib
+pip install -e .[ml]      # + PyTorch, for the experimental particle classifier
 ```
 
 ## Getting the structures
@@ -134,6 +135,33 @@ Setting `--mask-radius` to about the particle radius plus ~10 Å widens the
 gaps by about 50% (median 0.026 -> 0.039), because less empty background
 enters the correlation.
 
+## Phase 2 (experimental): per-particle classifier
+
+The aim is to classify individual particles (and eventually whole
+micrographs, like a Topaz picker that knows which contaminant it is looking
+at) rather than only 2D class averages.
+
+- **Network** (`junkfinder/classifier.py`): the ResNet8 design described for
+  Topaz (Bepler et al. 2019, [doi](https://doi.org/10.1038/s41592-019-0575-8)),
+  re-implemented rather than copied (Topaz is GPL-3), with one output per
+  library entry plus "background" instead of Topaz's single particle/not
+  output.
+- **Training data** (`junkfinder/particles.py`): simulated from the atomic
+  models, so no manual labelling is needed. Projected protein thickness is
+  turned into phase, a CTF at random defocus (0.8-2.5 µm, 300 kV) is applied,
+  and shot noise for the chosen electron dose is added. Augmentations: random
+  rotation, centring errors of up to 12 Å, slow ice-thickness variation, and
+  neighbouring particles at the box edge. Big particles therefore come out
+  brighter than small ones, as on a real grid.
+- **Benchmark**: train on views from one set of directions, test on new
+  random directions with fresh noise:
+
+```bash
+junkfinder particle-benchmark --cache structures --out particle_benchmark
+```
+
+Results: benchmark in progress.
+
 ## Known limitations
 
 - **Detergent micelles and nanodiscs are not modelled yet.** In class averages
@@ -156,8 +184,13 @@ enters the correlation.
 - [ ] Choose the mask radius automatically from each class average.
 - [ ] Micelle/nanodisc model around TM regions (e.g. using OPM orientations).
 - [ ] Catalogs for HEK293, Sf9/High Five and yeast expression hosts.
-- [ ] Phase 2: per-particle classifier trained on simulated and EMPIAR
-  particles, for live use during collection (cryoSPARC Live).
+- [ ] Phase 2 (started, see below): per-particle classifier.
+  1. [x] Prototype on simulated particles (`particle-benchmark`).
+  2. [ ] Classify real extracted particles (cryoSPARC `.cs` + stack).
+  3. [ ] Self-training: particles in classes the class-average screen calls
+     confidently become labels; fine-tune; check on held-out micrographs.
+  4. [ ] Fully convolutional multi-class picker on whole micrographs, for
+     cryoSPARC Live.
 - [ ] RELION `.star` input.
 
 ## Tests

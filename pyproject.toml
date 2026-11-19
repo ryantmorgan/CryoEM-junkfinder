@@ -12,6 +12,7 @@ dependencies = ["numpy", "scipy", "gemmi", "mrcfile", "matplotlib"]
 
 [project.optional-dependencies]
 test = ["pytest"]
+ml = ["torch"]
 
 [project.scripts]
 junkfinder = "junkfinder.cli:main"

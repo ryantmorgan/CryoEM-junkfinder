@@ -120,6 +120,57 @@ ORG_HELP = (f"Catalog(s), comma-separated. Available: {', '.join(sorted(CATALOGS
             f"(default {DEFAULT_CATALOGS})")
 
 
+def cmd_particle_benchmark(args: argparse.Namespace) -> None:
+    """Train a per-particle classifier on simulated particles and report accuracy."""
+    import dataclasses
+    import json
+
+    import numpy as np
+    import torch
+
+    from .classifier import evaluate, report, train
+    from .particles import Microscope, ParticleSimulator, build_views
+    from .structures import load_atoms
+
+    torch.set_num_threads(args.threads or torch.get_num_threads())
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    catalog = [c for c in get_catalog(args.organism) if c.pdb_id]
+    if args.only:
+        keep = {k.strip() for k in args.only.split(",")}
+        catalog = [c for c in catalog if c.key in keep]
+    structs = {}
+    for c in catalog:
+        path = cached_structure(c.pdb_id, c.assembly, Path(args.cache)) if args.cache else None
+        structs[c.key] = load_atoms(path or fetch_structure(c.pdb_id, c.assembly))
+    print(f"Rendering {args.train_views} training views and {args.test_views} test views "
+          f"for {len(structs)} structures...", flush=True)
+    train_views = build_views(structs, args.train_views, args.box, args.apix)
+    test_views = build_views(structs, args.test_views, args.box, args.apix, rng=np.random.default_rng(123))
+
+    scope = Microscope(apix=args.apix, dose=(args.dose_min, args.dose_max))
+    sim = ParticleSimulator(train_views, scope)
+    print(f"Training ({args.steps} steps of {args.batch}, dose {args.dose_min}-{args.dose_max} e/Å²)...")
+    model, log = train(sim, steps=args.steps, batch=args.batch, units=args.units)
+    torch.save({"state_dict": model.state_dict(), "keys": sim.keys, "units": args.units,
+                "box": args.box, "apix": args.apix}, out / "particle_classifier.pt")
+
+    summary = {"keys": sim.keys, "train_log": dataclasses.asdict(log), "eval": {}}
+    text = []
+    for dose in args.eval_doses:
+        test_sim = ParticleSimulator(test_views, dataclasses.replace(scope, dose=dose))
+        conf = evaluate(model, test_sim, per_class=args.eval_per_class)
+        np.savetxt(out / f"confusion_dose{dose:g}.tsv", conf, fmt="%d", delimiter="\t",
+                   header="\t".join(sim.keys))
+        summary["eval"][f"{dose:g}"] = conf.tolist()
+        block = f"== dose {dose:g} e/Å² (unseen view directions, fresh noise)\n" + report(conf, sim.keys)
+        text.append(block)
+        print("\n" + block, flush=True)
+    (out / "report.txt").write_text("\n\n".join(text) + "\n")
+    (out / "summary.json").write_text(json.dumps(summary))
+    print(f"\nWrote {out}/report.txt, confusion matrices and particle_classifier.pt")
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="junkfinder", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -168,6 +219,26 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--out", default="junkfinder_out")
     s.add_argument("--no-montage", action="store_true")
     s.set_defaults(func=cmd_screen)
+
+    s = sub.add_parser("particle-benchmark",
+                       help="Train/evaluate a per-particle classifier on simulated particles (needs torch)")
+    s.add_argument("--organism", default=DEFAULT_CATALOGS)
+    s.add_argument("--only", help="Comma-separated catalog keys to include")
+    s.add_argument("--cache", help="Structure folder (e.g. structures/)")
+    s.add_argument("--out", default="particle_benchmark")
+    s.add_argument("--box", type=int, default=64)
+    s.add_argument("--apix", type=float, default=6.0)
+    s.add_argument("--train-views", type=int, default=1000)
+    s.add_argument("--test-views", type=int, default=100)
+    s.add_argument("--steps", type=int, default=3000)
+    s.add_argument("--batch", type=int, default=128)
+    s.add_argument("--units", type=int, default=32)
+    s.add_argument("--dose-min", type=float, default=10.0)
+    s.add_argument("--dose-max", type=float, default=40.0)
+    s.add_argument("--eval-doses", type=float, nargs="+", default=[10.0, 20.0, 40.0])
+    s.add_argument("--eval-per-class", type=int, default=400)
+    s.add_argument("--threads", type=int)
+    s.set_defaults(func=cmd_particle_benchmark)
 
     args = p.parse_args(argv)
     args.func(args)

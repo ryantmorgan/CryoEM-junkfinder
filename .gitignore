@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 *.npz
 junkfinder_out/
+particle_benchmark/

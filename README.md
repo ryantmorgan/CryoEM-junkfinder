@@ -44,8 +44,8 @@ it cannot reach the RCSB (e.g. a locked-down cluster), fetch them once
 somewhere that can, and commit or copy the folder:
 
 ```bash
-junkfinder fetch --dir structures     # gzipped biological assemblies
-junkfinder verify --dir structures    # organism, title, mass vs catalog
+junkfinder fetch --dir structures     # gzipped assemblies + <ID>.json metadata
+junkfinder verify --dir structures    # organism, title, mass vs catalog (offline)
 git add structures && git commit -m "Add contaminant structures"
 junkfinder build-library --cache structures ...
 ```
@@ -83,6 +83,11 @@ Useful options:
 
 ## Catalog sources
 
+Every catalog entry has been checked against the RCSB with `junkfinder verify`
+(source organism, oligomeric state and mass). GldA uses 43WP, a 3.2 Å cryo-EM
+structure of the octamer; succinate dehydrogenase uses assembly 2 of 1NEK (the
+trimer).
+
 Each catalog entry lists DOIs reporting it as a co-purifying contaminant
 (`junkfinder/catalog.py`). Main sources so far:
 
@@ -99,7 +104,7 @@ Each catalog entry lists DOIs reporting it as a co-purifying contaminant
 
 A separate `lab` catalog covers standard test and calibration samples that can
 be carried over on shared equipment (plunge-freezers, tweezers, cassettes):
-apoferritin, β-galactosidase, aldolase and the T20S proteasome. GroEL is
+mouse apoferritin, β-galactosidase, aldolase and the T20S proteasome. GroEL is
 already in the E. coli catalog. Both catalogs are used by default; choose
 with `--organism ecoli`, `--organism lab` or `--organism ecoli,lab`.
 
@@ -116,9 +121,6 @@ out on purpose, because they are too small to produce recognisable 2D classes.
 - **Thresholds are uncalibrated.** Defaults (`--min-score 0.5`,
   `--min-margin 0.03`) are placeholders. Calibrating them on real datasets is
   the next job.
-- **Check catalog IDs marked "(verify ID)"** with `junkfinder verify` after
-  fetching, before trusting results for those entries. GldA has no structure
-  chosen yet.
 - 2D only. Small proteins (<~100 kDa) and featureless blobs will often come
   out as `ambiguous`, which is the honest answer.
 

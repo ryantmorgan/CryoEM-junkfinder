@@ -5,8 +5,8 @@ assembly to download (RCSB ``<ID>-assembly<N>.cif``) so that oligomers such as
 the AcrB trimer or the GroEL 14-mer are rendered correctly instead of the
 crystallographic asymmetric unit.
 
-Entries with ``verify=True`` have a PDB ID that has not yet been checked
-against the RCSB (run ``junkfinder verify`` on downloaded files). An empty
+All current entries have been checked against the RCSB with ``junkfinder
+verify``. Set ``verify=True`` on new entries until they have been. An empty
 ``pdb_id`` means no structure has been chosen yet; supply one with
 ``--structure KEY=PATH``. ``refs`` holds DOIs reporting the protein as a
 co-purifying contaminant.
@@ -48,14 +48,14 @@ ECOLI: tuple[Contaminant, ...] = (
     ),
     Contaminant(
         "cyt_bd", "Cytochrome bd-I oxidase (CydABX)", "6RKO", 110, True,
-        "Upregulated under low aeration.", verify=True,
+        "Upregulated under low aeration.",
     ),
     Contaminant(
         "sdh", "Succinate dehydrogenase (SdhCDAB, trimer)", "1NEK", 360, True,
-        verify=True,
+        "Assembly 2 is the trimer; assembly 1 is a single SdhCDAB protomer.", assembly=2,
     ),
     Contaminant(
-        "atp_synthase", "F1Fo ATP synthase", "6OQR", 550, True, verify=True,
+        "atp_synthase", "F1Fo ATP synthase", "6OQR", 550, True,
     ),
     Contaminant(
         "ompF", "OmpF porin (trimer)", "2OMF", 110, True,
@@ -64,31 +64,32 @@ ECOLI: tuple[Contaminant, ...] = (
     Contaminant(
         "arnA", "ArnA bifunctional enzyme (hexamer)", "1Z7E", 450, False,
         "Very common Ni-NTA contaminant (surface histidine clusters); co-elutes on SEC "
-        "with FolE and GldA.", verify=True, refs=("10.1002/prot.24364", "10.1107/S2059798326010302"),
+        "with FolE and GldA.", refs=("10.1002/prot.24364", "10.1107/S2059798326010302"),
     ),
     Contaminant(
         "glmS", "GlmS / GFAT glucosamine-6-phosphate synthase (dimer)", "2J6H", 135, False,
-        "Surface histidine clusters; persists even in LOBSTR strains.", verify=True,
+        "Surface histidine clusters; persists even in LOBSTR strains.",
         refs=("10.1016/j.bbagen.2006.03.027", "10.1002/bit.70244"),
     ),
     Contaminant(
         "pdh_E1", "Pyruvate dehydrogenase E1 (AceE, dimer)", "1L8A", 200, False,
-        "Persists even in IMACulate strains.", verify=True, refs=("10.1002/bit.70244",),
+        "Persists even in IMACulate strains.", refs=("10.1002/bit.70244",),
     ),
     Contaminant(
         "ogdh_E2", "2-Oxoglutarate dehydrogenase E2 core (SucB, 24-mer cube)", "1E2O", 700, False,
-        "Listed as ODO2; the cubic E2 core gives very distinctive classes.", verify=True,
+        "Listed as ODO2; the cubic E2 core gives very distinctive classes.",
         refs=("10.1016/j.bbagen.2006.03.027",),
     ),
     Contaminant(
         "folE", "GTP cyclohydrolase I (FolE, decamer)", "1GTP", 250, False,
-        "Seen as off-target particles in an E. coli-expressed cryo-EM sample.", verify=True,
+        "Seen as off-target particles in an E. coli-expressed cryo-EM sample.",
         refs=("10.1107/S2059798326010302",),
     ),
     Contaminant(
-        "gldA", "Glycerol dehydrogenase (GldA, octamer)", "", 330, False,
+        "gldA", "Glycerol dehydrogenase (GldA, octamer)", "43WP", 330, False,
         "Seen as off-target particles in an E. coli-expressed cryo-EM sample. "
-        "Structure ID still to be chosen.", refs=("10.1107/S2059798326010302",),
+        "43WP is a 3.2 Å cryo-EM octamer; 8GOA is an X-ray alternative.",
+        alt_ids=("8GOA",), refs=("10.1107/S2059798326010302",),
     ),
     Contaminant(
         "groEL", "GroEL chaperonin (with GroES cap)", "1AON", 870, False,
@@ -97,15 +98,15 @@ ECOLI: tuple[Contaminant, ...] = (
     Contaminant(
         "katE", "Catalase HPII (KatE, tetramer)", "1GGE", 340, False,
         "Co-purifies with His-tagged proteins; has been crystallised in place of targets.",
-        verify=True, refs=("10.1007/s00253-026-13820-2",),
+        refs=("10.1007/s00253-026-13820-2",),
     ),
     Contaminant(
         "dps", "Dps DNA-protection protein (12-mer)", "1DPS", 220, False,
-        "Hollow sphere ~9 nm; stationary-phase cultures.", verify=True,
+        "Hollow sphere ~9 nm; stationary-phase cultures.",
     ),
     Contaminant(
         "bfr", "Bacterioferritin (24-mer)", "1BCF", 450, False,
-        "Hollow sphere ~12 nm, easy to confuse with apoferritin.", verify=True,
+        "Hollow sphere ~12 nm, easy to confuse with apoferritin.",
     ),
     Contaminant(
         "ribosome70S", "70S ribosome", "4YBB", 2500, False,
@@ -120,9 +121,10 @@ ECOLI: tuple[Contaminant, ...] = (
 # carry-over were found, so these entries carry no refs.
 LAB: tuple[Contaminant, ...] = (
     Contaminant(
-        "apoferritin", "Apoferritin (human heavy chain, 24-mer)", "7A4M", 480, False,
-        "The standard resolution test sample. Hollow sphere ~12 nm; looks like "
-        "bacterioferritin at low resolution.", source_organism="Homo sapiens",
+        "apoferritin", "Apoferritin (mouse heavy chain, 24-mer)", "7A4M", 480, False,
+        "The standard resolution test sample (mouse and human heavy chains look the "
+        "same at this resolution). Hollow sphere ~12 nm; looks like bacterioferritin "
+        "at low resolution.", source_organism="Mus musculus",
     ),
     Contaminant(
         "beta_gal", "beta-Galactosidase (LacZ, tetramer)", "5A1A", 465, False,
@@ -130,12 +132,12 @@ LAB: tuple[Contaminant, ...] = (
     ),
     Contaminant(
         "aldolase", "Rabbit muscle aldolase (tetramer)", "5VY5", 160, False,
-        "Small-particle benchmark.", source_organism="Oryctolagus cuniculus", verify=True,
+        "Small-particle benchmark.", source_organism="Oryctolagus cuniculus",
     ),
     Contaminant(
         "t20s", "20S proteasome (T. acidophilum)", "1PMA", 700, False,
         "Barrel-shaped test specimen; side views look like four stacked rings.",
-        source_organism="Thermoplasma acidophilum", verify=True,
+        source_organism="Thermoplasma acidophilum",
     ),
 )
 

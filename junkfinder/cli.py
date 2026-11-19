@@ -8,7 +8,7 @@ from pathlib import Path
 from .catalog import CATALOGS, DEFAULT_CATALOGS, Contaminant, get_catalog
 from .cryosparc_io import load_class_averages
 from .library import Library, build_library
-from .structures import cached_structure, describe_structure, fetch_structure
+from .structures import cached_structure, describe_structure, fetch_metadata, fetch_structure
 from .screen import screen, summarise, write_montage, write_tsv
 
 
@@ -29,6 +29,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
             continue
         try:
             path = fetch_structure(c.pdb_id, c.assembly, out)
+            fetch_metadata(c.pdb_id, out)
             print(f"{c.key:<14s} {path}")
         except Exception as exc:  # noqa: BLE001
             failed.append(c.key)
@@ -53,8 +54,11 @@ def cmd_verify(args: argparse.Namespace) -> None:
         print(f"[{c.key}] {c.name}  ->  {path.name}: {status}")
         print(f"    title:    {d['title']}")
         print(f"    entities: {'; '.join(d['entities'][:6])}")
+        method = f"; {d['method']}" if d.get("method") else ""
+        if d.get("resolution"):
+            method += f" {d['resolution']:.1f} Å"
         print(f"    organism: {', '.join(d['organisms'])}; {d['chains']} chains, "
-              f"~{d['approx_kda']} kDa protein\n")
+              f"~{d['approx_kda']} kDa polymer{method}\n")
 
 
 def cmd_build(args: argparse.Namespace) -> None:

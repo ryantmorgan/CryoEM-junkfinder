@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+import json
 import shutil
 import urllib.request
 from pathlib import Path
@@ -12,6 +13,19 @@ import numpy as np
 
 RCSB_ASSEMBLY = "https://files.rcsb.org/download/{pdb}-assembly{n}.cif.gz"
 RCSB_ENTRY = "https://files.rcsb.org/download/{pdb}.cif.gz"
+RCSB_GRAPHQL = "https://data.rcsb.org/graphql"
+
+# Assembly files from the RCSB omit the source-organism records, so 'fetch'
+# also saves a small JSON sidecar (<ID>.json) with entry metadata.
+_META_QUERY = """query($id: String!) { entry(entry_id: $id) {
+  struct { title }
+  rcsb_entry_info { experimental_method resolution_combined }
+  polymer_entities { rcsb_entity_source_organism { scientific_name } }
+} }"""
+
+# Approximate residue masses in kDa, for the mass sanity check.
+_KDA_PER_AA = 0.110
+_KDA_PER_NT = 0.330
 
 DEFAULT_CACHE = Path.home() / ".cache" / "junkfinder" / "structures"
 
@@ -56,13 +70,56 @@ def fetch_structure(pdb_id: str, assembly: int = 1, cache_dir: Path = DEFAULT_CA
     raise RuntimeError(f"Could not download {pdb}:\n  " + "\n  ".join(errors))
 
 
+def fetch_metadata(pdb_id: str, cache_dir: Path = DEFAULT_CACHE) -> Path:
+    """Save RCSB entry metadata (title, method, source organisms) as <ID>.json."""
+    pdb = pdb_id.upper()
+    path = Path(cache_dir) / f"{pdb}.json"
+    if path.exists():
+        return path
+    body = json.dumps({"query": _META_QUERY, "variables": {"id": pdb}}).encode()
+    req = urllib.request.Request(RCSB_GRAPHQL, body, {"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        entry = json.load(resp)["data"]["entry"]
+    if entry is None:
+        raise RuntimeError(f"RCSB has no entry {pdb}")
+    organisms = sorted({
+        o["scientific_name"].strip()
+        for ent in entry.get("polymer_entities") or []
+        for o in ent.get("rcsb_entity_source_organism") or []
+        if o.get("scientific_name")
+    })
+    info = entry.get("rcsb_entry_info") or {}
+    meta = {
+        "id": pdb,
+        "title": (entry.get("struct") or {}).get("title", ""),
+        "method": info.get("experimental_method"),
+        "resolution": (info.get("resolution_combined") or [None])[0],
+        "organisms": organisms,
+    }
+    Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(meta, indent=1) + "\n")
+    return path
+
+
+def _sidecar(path: Path) -> dict:
+    """Metadata saved by fetch_metadata next to a structure file, if any."""
+    pdb = path.name.split("-assembly")[0].split(".")[0].upper()
+    side = path.parent / f"{pdb}.json"
+    try:
+        return json.loads(side.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 def describe_structure(path: str | Path) -> dict:
     """Metadata used to check a file is the protein we think it is."""
-    doc = gemmi.cif.read(str(path))
-    block = doc.sole_block()
+    try:
+        block = gemmi.cif.read(str(path)).sole_block()
+    except (ValueError, RuntimeError):  # not mmCIF (e.g. a local PDB file)
+        block = None
 
     def values(tag: str) -> list[str]:
-        col = block.find_values(tag)
+        col = block.find_values(tag) if block is not None else None
         return [gemmi.cif.as_string(v) for v in col] if col else []
 
     organisms = set()
@@ -70,16 +127,28 @@ def describe_structure(path: str | Path) -> dict:
                 "_entity_src_nat.pdbx_organism_scientific",
                 "_pdbx_entity_src_syn.organism_scientific"):
         organisms.update(v for v in values(tag) if v not in ("", "?", "."))
+    meta = _sidecar(Path(path))
+    if not organisms:
+        organisms.update(meta.get("organisms", []))
     st = gemmi.read_structure(str(path))
+    st.setup_entities()  # PDB-format files have no entity records
     st.remove_ligands_and_waters()
-    n_res = sum(len(ch) for ch in st[0]) if len(st) else 0
+    kda = 0.0
+    if len(st):
+        for ch in st[0]:
+            for res in ch:
+                info = gemmi.find_tabulated_residue(res.name)
+                is_na = info is not None and info.is_nucleic_acid()
+                kda += _KDA_PER_NT if is_na else _KDA_PER_AA
     return {
-        "id": block.name,
-        "title": (values("_struct.title") or [""])[0],
+        "id": meta.get("id") or (block.name if block is not None else Path(path).stem),
+        "title": (values("_struct.title") or [meta.get("title", "")])[0],
         "entities": [v for v in values("_entity.pdbx_description") if v not in ("?", ".")],
         "organisms": sorted(organisms),
         "chains": len(st[0]) if len(st) else 0,
-        "approx_kda": round(n_res * 0.110),
+        "approx_kda": round(kda),
+        "method": meta.get("method"),
+        "resolution": meta.get("resolution"),
     }
 
 

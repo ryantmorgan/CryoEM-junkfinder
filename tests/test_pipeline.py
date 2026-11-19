@@ -18,7 +18,7 @@ from junkfinder.library import Library, build_library
 from junkfinder.match import PolarGrid, best_match, reference_spectra, shift_grid
 from junkfinder.project import fibonacci_directions, project
 from junkfinder.screen import aligned_reference, screen
-from junkfinder.structures import load_atoms
+from junkfinder.structures import describe_structure, load_atoms
 
 RNG = np.random.default_rng(0)
 
@@ -164,3 +164,21 @@ def test_catalogs_combine_and_validate():
     assert get_catalog("ecoli,ecoli") == get_catalog("ecoli")
     with pytest.raises(SystemExit):
         get_catalog("yeast")
+
+
+def test_describe_uses_sidecar_metadata_and_counts_nucleic_acids(tmp_path):
+    """Assembly files lack organism records; 'verify' falls back to <ID>.json."""
+    import json
+    lines = []
+    for i in range(10):  # 10 amino acids + 10 nucleotides
+        lines.append(f"ATOM  {i + 1:5d}  CA  ALA A{i + 1:4d}    {i:8.3f}{0:8.3f}{0:8.3f}  1.00  0.00           C")
+    for i in range(10):
+        lines.append(f"ATOM  {i + 11:5d}  P     A B{i + 1:4d}    {i:8.3f}{9:8.3f}{0:8.3f}  1.00  0.00           P")
+    pdb = tmp_path / "9XYZ-assembly1.pdb"
+    pdb.write_text("\n".join(lines) + "\nEND\n")
+    (tmp_path / "9XYZ.json").write_text(json.dumps(
+        {"id": "9XYZ", "title": "Toy", "organisms": ["Escherichia coli"], "method": "EM", "resolution": 3.0}))
+    d = describe_structure(pdb)
+    assert d["organisms"] == ["Escherichia coli"]
+    assert d["id"] == "9XYZ" and d["method"] == "EM"
+    assert d["approx_kda"] == round(10 * 0.110 + 10 * 0.330)

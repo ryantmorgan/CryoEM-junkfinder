@@ -12,13 +12,13 @@ weight an atom of that volume would carry.
 2. **Micelle.** A smooth oblate ellipsoid centred on the hydrophobic region,
    matching 2D classes of bo3 in DDM. It is 90-120 Å across (always at least
    8 Å beyond large transmembrane domains), 52-68 Å thick, slightly elliptical
-   in-plane and only faintly lumpy. It has a dense outer headgroup
-   shell and a weak tail core. Enclosed lumens, such as porin channels, stay
+   in-plane and only faintly lumpy. A headgroup shell slightly denser than
+   the core keeps it evenly filled. Enclosed lumens, such as porin channels, stay
    empty.
 3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
-   inside a 10 Å MSP scaffold with protein contrast. Outer diameters are
-   100, 130 and 170 Å for MSP1D1, MSP1E3D1 and MSP2N2. Usually the smallest
-   that fits is used. Small proteins may sit off-centre, as
+   with a rounded rim, wrapped by a 10 Å MSP scaffold. Outer diameters are
+   100, 130 and 170 Å for MSP1D1, MSP1E3D1 and MSP2N2. Half the time the
+   smallest that fits is used, otherwise a random size that fits. Small proteins may sit off-centre, as
    cs-create-nanodisc-templates (O. Clarke) also allows.
 
 Contrasts are rough estimates from electron densities relative to vitreous
@@ -30,9 +30,10 @@ ice (protein = 1).
   evenly filled, with no bright rim. Heads and tails also intermix, and at
   ~10 Å the classes cannot separate them. Micelles therefore draw headgroups
   from 0.7-1.1x and cores from 0.3-0.6x.
-- Lipid bilayers have a deeper methyl trough: nanodiscs draw headgroups from
-  0.6-1.1x and cores from -0.5 to 0x (cs-create-nanodisc-templates uses 1.0
-  and -0.5).
+- Lipid bilayers have a deeper methyl trough (cs-create-nanodisc-templates
+  uses heads 1.0, core -0.5). Real 2D classes of bo3 in MSP1E3D1 discs look
+  evenly filled, though, with no bright scaffold ring. So nanodiscs draw
+  heads from 0.6-1.0x, cores from 0.15-0.5x and the scaffold from 0.3-0.7x.
 Drawing them per variant keeps the network from learning one exact
 environment.
 """
@@ -163,7 +164,8 @@ def typical_params(kind: str) -> EnvParams:
     if kind == "micelle":
         return EnvParams(kind=kind, half_height=30, diameter=105, head=10, head_contrast=0.9,
                          core_contrast=0.45, lumpiness=0.03, ellipticity=0.1)
-    return EnvParams(kind=kind, half_height=19, head=7, head_contrast=0.85, core_contrast=-0.25)
+    return EnvParams(kind=kind, half_height=21, head=8, head_contrast=0.8, core_contrast=0.3,
+                     msp_contrast=0.5)
 
 
 def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
@@ -176,10 +178,11 @@ def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
                 core_contrast=rng.uniform(0.3, 0.6), lumpiness=rng.uniform(0.0, 0.06),
                 ellipticity=rng.uniform(0.0, 0.2))
            if kind == "micelle" else
-           dict(half_height=rng.uniform(17, 21), head=rng.uniform(5, 9),
-                head_contrast=rng.uniform(0.6, 1.1), core_contrast=rng.uniform(-0.5, 0.0))),
+           dict(half_height=rng.uniform(19, 24), head=rng.uniform(6, 10),
+                head_contrast=rng.uniform(0.6, 1.0), core_contrast=rng.uniform(0.15, 0.5),
+                msp_contrast=rng.uniform(0.3, 0.7))),
         # Usually the smallest disc that fits; sometimes a bigger one (then None -> fit).
-        msp=None if rng.random() < 0.7 else sizes[int(rng.integers(len(sizes)))],
+        msp=None if rng.random() < 0.5 else sizes[int(rng.integers(len(sizes)))],
         offcentre=rng.uniform(0, 1) ** 2 if kind == "nanodisc" else 0.0,
         seed=int(rng.integers(1 << 31)),
     )
@@ -250,12 +253,15 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
         contrast = np.where(is_head, p.head_contrast, p.core_contrast)
         extra = []
     else:
-        disc = (~filled) & (rad <= r_in)
+        # Rounded rim (as in cs-create-nanodisc-templates): the bilayer edge is a
+        # half-circle of radius zmax in the r-z plane, and the MSP scaffold wraps it.
+        shoulder = max(r_in - zmax, 0.0)
+        d_rim = np.where(rad > shoulder, np.hypot(rad - shoulder, Z), np.abs(Z))
+        disc = (~filled) & (d_rim <= zmax)
         env = disc
-        is_head = disc & (np.abs(Z) > zmax - p.head)
+        is_head = disc & (d_rim > zmax - p.head)
         contrast = np.where(is_head, p.head_contrast, p.core_contrast)
-        # MSP scaffold: two stacked amphipathic helices, ~10 Å thick, ~30 Å tall.
-        belt = (rad > r_in) & (rad <= r_in + MSP_WALL) & (np.abs(Z) <= p.msp_half_height)
+        belt = (~filled) & (rad > shoulder) & (d_rim > zmax) & (d_rim <= zmax + MSP_WALL)
         extra = [(belt, p.msp_contrast)]
 
     coords, weights = [pts[env.reshape(-1)]], [contrast[env].reshape(-1)]

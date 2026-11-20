@@ -245,13 +245,16 @@ as pseudo-atoms, which then go through the normal projection pipeline:
      0.3–0.6×, so the micelle looks evenly filled and nearly as bright as the
      protein, as in the real classes.
    - Enclosed lumens, such as porin channels, stay empty.
-3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
-   inside a 10 Å MSP scaffold with protein contrast.
+3. **Nanodisc.** A lipid bilayer disc with a rounded rim, wrapped by a 10 Å
+   MSP scaffold.
    - Outer diameters are 100, 130 and 170 Å for MSP1D1, MSP1E3D1 and MSP2N2.
-   - Usually the smallest disc that fits is used, sometimes a larger one.
-   - Small proteins may sit off-centre.
+   - Half the time the smallest disc that fits is used, otherwise a random
+     size that fits. Small proteins may sit off-centre.
+   - Contrast is set so the disc looks evenly filled, with no bright scaffold
+     ring, as in 2D classes of bo3 in MSP1E3D1: heads 0.6–1.0×, core
+     0.15–0.5×, scaffold 0.3–0.7× protein contrast.
 
-   Sizes and contrasts follow
+   The rounded rim, sizes and off-centre option follow
    [cs-create-nanodisc-templates](https://github.com/olibclarke/cs-create-nanodisc-templates)
    (O. Clarke).
 

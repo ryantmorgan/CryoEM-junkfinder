@@ -237,14 +237,21 @@ as pseudo-atoms, which then go through the normal projection pipeline:
    - The transmembrane helices of bo3 and cyt bd sit at a median tilt of 24°
      to it.
 2. **Micelle.** A belt of rounded profile around the hydrophobic region.
-   - Width 13–24 Å from the protein; half-height 18–24 Å; lumpy and slightly
-     elliptical.
-   - A 5–9 Å headgroup shell at 0.4–0.9× protein contrast, and a tail core
-     at −0.1 to 0.25×.
+   - Overall diameter 90–120 Å, with at least an 8 Å belt around large
+     transmembrane domains such as AcrB.
+   - Half-height 18–24 Å; lumpy and slightly elliptical.
+   - A 5–9 Å headgroup shell at 0.6–1.1× protein contrast, and a tail core
+     at −0.4 to +0.05×.
    - Enclosed lumens, such as porin channels, stay empty.
 3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
-   inside a two-helix MSP belt with protein contrast. The disc is the
-   smallest of MSP1D1, MSP1E3D1 and MSP2N2 that fits around the protein.
+   inside a 10 Å MSP scaffold with protein contrast.
+   - Outer diameters are 100, 130 and 170 Å for MSP1D1, MSP1E3D1 and MSP2N2.
+   - Usually the smallest disc that fits is used, sometimes a larger one.
+   - Small proteins may sit off-centre.
+
+   Sizes and contrasts follow
+   [cs-create-nanodisc-templates](https://github.com/olibclarke/cs-create-nanodisc-templates)
+   (O. Clarke).
 
 For the per-particle benchmark, every membrane protein gets
 `--env-variants` (default 24) random micelles or discs for training, and

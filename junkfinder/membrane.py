@@ -10,17 +10,22 @@ weight an atom of that volume would carry.
    and slab positions for the ~30 Å slab that holds the most exposed
    hydrophobic residues. :func:`find_membrane` returns its normal and centre.
 2. **Micelle.** A belt around the hydrophobic region with a rounded profile
-   and lumpy, slightly elliptical width. It has a dense outer headgroup
+   and lumpy, slightly elliptical width. The overall diameter is 90-120 Å,
+   with at least an 8 Å belt around large transmembrane domains. It has a dense outer headgroup
    shell and a weak tail core. Enclosed lumens, such as porin channels, stay
    empty.
 3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
-   inside a two-helix MSP belt with protein contrast. The disc is the
-   smallest of MSP1D1, MSP1E3D1 and MSP2N2 that fits around the protein.
+   inside a 10 Å MSP scaffold with protein contrast. Outer diameters are
+   100, 130 and 170 Å for MSP1D1, MSP1E3D1 and MSP2N2. Usually the smallest
+   that fits is used. Small proteins may sit off-centre, as
+   cs-create-nanodisc-templates (O. Clarke) also allows.
 
-Contrast defaults are rough estimates from electron densities relative to
-water: maltoside or phosphocholine heads are denser than protein, alkyl
-tails slightly less dense than water. They are drawn per variant from
-ranges, so the network does not learn one exact micelle.
+Contrasts are rough estimates from electron densities relative to water.
+Maltoside or phosphocholine heads are about as dense as protein, and alkyl
+tails are less dense than water. Each variant draws headgroups from 0.6-1.1x
+and cores from -0.4 to +0.05x protein contrast; cs-create-nanodisc-templates
+uses 1.0 and -0.5. Drawing them per variant keeps the network from learning
+one exact micelle.
 """
 
 from __future__ import annotations
@@ -41,9 +46,11 @@ _HYDRO = {
     "ASN": -0.8, "GLN": -0.8, "ASP": -1.5, "GLU": -1.5, "LYS": -1.5, "ARG": -1.5,
 }
 
-# Inner lipid radius (Å) of common MSP nanodiscs, from outer diameters of
-# about 9.7, 12.9 and 16.5 nm minus the ~10 Å belt.
-MSP_INNER_RADIUS = {"MSP1D1": 38.0, "MSP1E3D1": 54.0, "MSP2N2": 72.0}
+# Outer diameters (Å) of common MSP nanodiscs, as used by
+# github.com/olibclarke/cs-create-nanodisc-templates. The scaffold wall is
+# ~10 Å, so the lipid radius is D/2 - 10.
+MSP_OUTER_DIAMETER = {"MSP1D1": 100.0, "MSP1E3D1": 130.0, "MSP2N2": 170.0}
+MSP_WALL = 10.0
 
 
 @dataclass
@@ -128,6 +135,8 @@ class EnvParams:
     grid: float = 2.0  # pseudo-atom spacing (Å)
     half_height: float = 21.0  # micelle / bilayer half-thickness (Å)
     width: float = 18.0  # micelle belt width from the protein surface (Å)
+    diameter: float | None = None  # overall micelle diameter (Å); sets width if given
+    min_width: float = 8.0  # thinnest belt around large TM domains (Å)
     head: float = 7.0  # headgroup shell / layer thickness (Å)
     head_contrast: float = 0.6  # fraction of protein contrast
     core_contrast: float = 0.1
@@ -135,20 +144,26 @@ class EnvParams:
     ellipticity: float = 0.1
     msp: str | None = None  # nanodisc size; None = smallest that fits
     msp_contrast: float = 1.0
+    msp_half_height: float = 15.0  # scaffold belt height / 2 (Å)
+    offcentre: float = 0.0  # 0-1: fraction of the free space the protein is shifted by
     seed: int = 0
 
 
 def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
     """Draw a plausible environment (ranges are deliberately wide)."""
+    sizes = list(MSP_OUTER_DIAMETER)
     return EnvParams(
         kind=kind,
-        half_height=rng.uniform(18, 24) if kind == "micelle" else rng.uniform(19, 22),
-        width=rng.uniform(13, 24),
+        half_height=rng.uniform(18, 24) if kind == "micelle" else rng.uniform(17, 21),
+        diameter=rng.uniform(90, 120) if kind == "micelle" else None,
         head=rng.uniform(5, 9),
-        head_contrast=rng.uniform(0.4, 0.9),
-        core_contrast=rng.uniform(-0.1, 0.25),
+        head_contrast=rng.uniform(0.6, 1.1),
+        core_contrast=rng.uniform(-0.4, 0.05),
         lumpiness=rng.uniform(0.05, 0.25),
         ellipticity=rng.uniform(0.0, 0.25),
+        # Usually the smallest disc that fits; sometimes a bigger one (then None -> fit).
+        msp=None if rng.random() < 0.7 else sizes[int(rng.integers(len(sizes)))],
+        offcentre=rng.uniform(0, 1) ** 2 if kind == "nanodisc" else 0.0,
         seed=int(rng.integers(1 << 31)),
     )
 
@@ -165,17 +180,24 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
         raise ValueError("no protein atoms near the membrane plane")
     axis_xy = slab[:, :2].mean(0)
     r_prot = np.linalg.norm(slab[:, :2] - axis_xy, axis=1).max()
+    core = local[np.abs(local[:, 2]) < 15]
+    core = core if len(core) else slab
+    r_tm = np.percentile(np.linalg.norm(core[:, :2] - axis_xy, axis=1), 98)
+    width = p.width if p.diameter is None else max(p.diameter / 2 - r_tm, p.min_width)
+    disc_xy = axis_xy
 
     if p.kind == "nanodisc":
-        sizes = sorted(MSP_INNER_RADIUS.items(), key=lambda kv: kv[1])
-        if p.msp:
-            r_in = MSP_INNER_RADIUS[p.msp]
-        else:
-            r_in = next((r for _, r in sizes if r >= r_prot + 6), sizes[-1][1])
+        radii = sorted(d / 2 - MSP_WALL for d in MSP_OUTER_DIAMETER.values())
+        fit = next((r for r in radii if r >= r_tm), radii[-1])
+        r_in = max(MSP_OUTER_DIAMETER[p.msp] / 2 - MSP_WALL, fit) if p.msp else fit
         r_in *= 1 + rng.uniform(-0.04, 0.04)
-        extent = r_in + 14
+        # Small proteins in big discs often sit off-centre.
+        slack = max(r_in - r_tm - 4, 0.0)
+        a = rng.uniform(0, 2 * np.pi)
+        disc_xy = axis_xy + p.offcentre * slack * np.array([np.cos(a), np.sin(a)])
+        extent = np.linalg.norm(disc_xy - axis_xy) + r_in + MSP_WALL + 4
     else:
-        extent = r_prot + p.width * (1 + p.lumpiness + p.ellipticity) + 6
+        extent = r_prot + width * (1 + p.lumpiness + p.ellipticity) + 6
 
     nxy = int(np.ceil(2 * extent / g)) + 1
     nz = int(np.ceil(2 * zmax / g)) + 1
@@ -196,14 +218,14 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
                     else np.full((nxy, nxy), np.inf) for k in range(nz)], -1)
     dx, dy = X - axis_xy[0], Y - axis_xy[1]
     ang = np.arctan2(dy, dx)
-    rad = np.hypot(dx, dy)
+    rad = np.hypot(X - disc_xy[0], Y - disc_xy[1])
 
     if p.kind == "micelle":
         phi1, phi2 = rng.uniform(0, 2 * np.pi, 2)
         mod = (1 + p.ellipticity * np.cos(2 * (ang - phi1))
                + p.lumpiness * np.cos(3 * (ang - phi2)) * rng.uniform(0.5, 1))
         profile = np.sqrt(np.clip(1 - (Z / zmax) ** 2, 0, 1))
-        env = (~filled) & (lat <= p.width * mod * profile) & (profile > 0)
+        env = (~filled) & (lat <= width * mod * profile) & (profile > 0)
         # Headgroup shell: within `head` Å of the solvent (not of the protein).
         solvent = ~(env | filled)
         d_solv = ndimage.distance_transform_edt(~solvent) * g
@@ -215,8 +237,8 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
         env = disc
         is_head = disc & (np.abs(Z) > zmax - p.head)
         contrast = np.where(is_head, p.head_contrast, p.core_contrast)
-        # MSP belt: two stacked amphipathic helices, ~10 Å thick, ~24 Å tall.
-        belt = (rad > r_in) & (rad <= r_in + 10) & (np.abs(Z) <= 12)
+        # MSP scaffold: two stacked amphipathic helices, ~10 Å thick, ~30 Å tall.
+        belt = (rad > r_in) & (rad <= r_in + MSP_WALL) & (np.abs(Z) <= p.msp_half_height)
         extra = [(belt, p.msp_contrast)]
 
     coords, weights = [pts[env.reshape(-1)]], [contrast[env].reshape(-1)]

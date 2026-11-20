@@ -171,6 +171,14 @@ ECOLI: tuple[Contaminant, ...] = (
         "Abundant; nucleic-acid binding lets it ride along on nucleic-acid-bridged complexes. "
         "Included for abundance.",
     ),
+    Contaminant(
+        "bc_bccp", "Biotin carboxylase-BCCP complex (AccC/AccB)", "4HR7", 270, False,
+        "BCCP is the only biotinylated E. coli protein, so it binds Strep-Tactin/streptavidin "
+        "(avidin pre-block or BCCP-free strains help). BCCP alone is ~17 kDa; with biotin "
+        "carboxylase it forms a larger complex (4HR7 assembly: 4 AccC + 4 AccB). E. coli ACC "
+        "can also form helical tubes (9E4N).",
+        refs=("10.1074/jbc.271.34.20690", "10.1016/j.str.2013.02.001"),
+    ),
 )
 
 # Standard test and calibration samples. They are not from the expression

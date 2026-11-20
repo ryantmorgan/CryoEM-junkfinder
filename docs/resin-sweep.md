@@ -10,9 +10,9 @@ cryo-EM. Only two resins select host proteins by a real mechanism:
 
 - **IMAC (Ni/Co):** proteins with surface histidine clusters, or proteins that
   bind the metal (ArnA, SlyD, GlmS, AcrB, ... and GlnA, below).
-- **Strep-Tactin / streptavidin:** endogenously biotinylated carboxylases (PCC,
-  MCC, PC, ACC). These are already in the `mammalian`, `insect` and `yeast`
-  catalogs.
+- **Strep-Tactin / streptavidin:** endogenously biotinylated carboxylases. In
+  E. coli that is BCCP (AccB), as the `bc_bccp` complex. In eukaryotes it is
+  PCC, MCC, PC and ACC, in the `mammalian`, `insect` and `yeast` catalogs.
 
 Every other matrix picks up whatever is abundant in the host. The five host
 catalogs already cover that. So the resin axis adds four E. coli entries, not
@@ -26,6 +26,7 @@ a new catalog.
 | nuo | 7NYR | complex I, ~550 kDa (membrane) | abundance |
 | ahpC | 4O5R | decamer, ~205 kDa | abundance |
 | rnap | 4YG2 | σ70 holoenzyme, ~450 kDa | abundance |
+| bc_bccp | 4HR7 | AccC/AccB complex, ~270 kDa | mechanistic (Strep-Tactin) |
 
 GlnA is the one mechanistic find. Its N-terminal histidines chelate Ni²⁺, and
 nickel stacks the dodecamers into helical filaments (PDB 7W85; Huang et al.
@@ -36,7 +37,9 @@ both, depending on the buffer.
 ## Rejected, so they need not be re-checked
 
 - **Under the ~150 kDa threshold for useful 2D classes:** SlyD, Crp, Fur, ArgE,
-  YadF, GlgA, ribosomal S15 and BCCP.
+  YadF, GlgA and ribosomal S15. BCCP alone is also
+  under the threshold, but it is now in the catalog as the biotin
+  carboxylase-BCCP complex, `bc_bccp` (see above).
 - **Glycogen phosphorylase (E. coli):** the only amylose-resin candidate above
   the threshold, but no report was found, and amylose is rare in cryo-EM preps.
 - **Leached Protein A/G and IgG (~150 kDa):** flexible and Y-shaped, so they

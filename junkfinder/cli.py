@@ -155,6 +155,39 @@ def cmd_fit_env(args: argparse.Namespace) -> None:
         print(f"Wrote {args.out}")
 
 
+def cmd_classify(args: argparse.Namespace) -> None:
+    """Classify real particles with a model trained by particle-benchmark."""
+    import numpy as np
+    import torch
+
+    from .apply import classify_cs, load_model, summarise_predictions, write_particle_table
+    from .cryosparc_io import read_cs
+
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    model, ckpt = load_model(args.model, device)
+    cs = read_cs(args.particles)
+    if args.max_particles and len(cs) > args.max_particles:
+        cs = cs[np.random.default_rng(0).choice(len(cs), args.max_particles, replace=False)]
+    apix_in = args.apix or float(cs["blob/psize_A"][0])
+    print(f"{len(cs)} particles at {apix_in:.2f} Å/px, box {int(cs['blob/shape'][0][0])} px -> "
+          f"model grid {ckpt['apix']} Å/px, {ckpt['box']} px; {len(ckpt['keys'])} classes; device {device}")
+    if "ctf/df1_A" in cs.dtype.names and "defocus_um" in ckpt:
+        df = (cs["ctf/df1_A"] + cs["ctf/df2_A"]) / 2e4
+        lo, hi = ckpt["defocus_um"]
+        frac = float(np.mean((df < lo) | (df > hi)))
+        print(f"Defocus {np.percentile(df, 5):.2f}-{np.percentile(df, 95):.2f} µm (5-95%); "
+              f"model trained on {lo}-{hi} µm" + (f"; {frac:.0%} of particles outside" if frac > 0.05 else ""))
+    probs, pred = classify_cs(cs, Path(args.project_dir), model, ckpt, apix_in, args.invert == "yes",
+                              device=device)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    write_particle_table(out / "particles.tsv", cs, probs, ckpt["keys"])
+    np.save(out / "probabilities.npy", probs)
+    text = summarise_predictions(cs, pred, probs, ckpt["keys"])
+    (out / "summary.txt").write_text(text + "\n")
+    print("\n" + text + f"\n\nWrote {out}/particles.tsv, summary.txt and probabilities.npy")
+
+
 def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     """Train a per-particle classifier on simulated particles and report accuracy."""
     import dataclasses
@@ -227,7 +260,8 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     print(f"Training ({args.steps} steps of {args.batch}, dose {args.dose_min}-{args.dose_max} e/Å²)...")
     model, log = train(sim, steps=args.steps, batch=args.batch, units=args.units)
     torch.save({"state_dict": model.state_dict(), "keys": sim.keys, "units": args.units,
-                "box": args.box, "apix": args.apix, "membrane_env": args.membrane_env}, out / "particle_classifier.pt")
+                "box": args.box, "apix": args.apix, "membrane_env": args.membrane_env,
+                "defocus_um": list(scope.defocus_um), "dose": [args.dose_min, args.dose_max]}, out / "particle_classifier.pt")
 
     summary = {"keys": sim.keys, "membrane_env": args.membrane_env,
                "train_log": dataclasses.asdict(log), "eval": {}}
@@ -298,6 +332,20 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--out", default="junkfinder_out")
     s.add_argument("--no-montage", action="store_true")
     s.set_defaults(func=cmd_screen)
+
+    s = sub.add_parser("classify", help="Classify real cryoSPARC particles with a trained "
+                       "particle_classifier.pt (needs torch)")
+    s.add_argument("particles", help="Particles .cs (Extract / 2D Classification / Select 2D job)")
+    s.add_argument("--model", required=True, help="particle_classifier.pt from particle-benchmark")
+    s.add_argument("--project-dir", required=True,
+                   help="cryoSPARC project directory (blob/path entries are relative to it)")
+    s.add_argument("--apix", type=float, help="Override particle pixel size (Å)")
+    s.add_argument("--invert", choices=["no", "yes"], default="no",
+                   help="'yes' if particles were extracted with flipped contrast (protein white)")
+    s.add_argument("--max-particles", type=int, help="Classify a random subset of this size")
+    s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")
+    s.add_argument("--out", default="classify_out")
+    s.set_defaults(func=cmd_classify)
 
     s = sub.add_parser("fit-env", help="Fit a micelle/nanodisc/SMA model to class averages of a "
                        "membrane protein (e.g. bo3 in DDM)")

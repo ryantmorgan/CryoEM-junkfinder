@@ -285,6 +285,31 @@ junkfinder particle-benchmark --cache structures --target rodA_pbp2=8TJ3 --targe
     --membrane-env all --apix 3.0 --box 128 --steps 40000 --batch 256 --out pb_target
 ```
 
+### Classifying real particles
+
+Apply a trained model to a cryoSPARC particle set (Extract, 2D
+Classification or Select 2D output):
+
+```bash
+junkfinder classify /path/to/P274/J123/J123_020_particles.cs --project-dir /path/to/P274 \
+    --model pb_target/particle_classifier.pt --out classify_J123
+```
+
+- **Preparation.** Each particle is brought onto the model's pixel size and
+  box, normalised by its edge noise, and classified.
+  - Particles extracted with flipped contrast (protein white) need
+    `--invert yes`.
+  - It warns if the particles' defocus falls outside the training range.
+- **Output.**
+  - `particles.tsv`: prediction, probability and runner-up for each
+    particle.
+  - `summary.txt`: label counts. If the `.cs` comes from 2D classification,
+    also a vote per 2D class; that vote is far more reliable than single
+    particles.
+- **Status.** This is the first contact with real data. Expect a domain gap
+  between simulated and real particles until the model is tuned on labelled
+  real examples (the self-training step).
+
 For class-average screening, `build-library --membrane-env micelle` adds a
 typical micelle to the membrane contaminants. `--target-env micelle` does the
 same for your own `--target` model if it is a membrane protein, so that

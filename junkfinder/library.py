@@ -64,9 +64,9 @@ def make_entry(
     if env == "none":
         coords, weights = load_atoms(structure_path)
     else:
-        from .membrane import EnvParams, MembraneModel
+        from .membrane import MembraneModel, typical_params
 
-        coords, weights = MembraneModel(structure_path).variant(env, params=EnvParams(kind=env))
+        coords, weights = MembraneModel(structure_path).variant(env, params=typical_params(env))
     dim = max_dimension(coords)
     if dim > box * apix * 0.95:
         print(f"  warning: {key} is {dim:.0f} Å across but the box is {box * apix:.0f} Å; "

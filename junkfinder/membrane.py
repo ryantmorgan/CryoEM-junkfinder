@@ -9,9 +9,10 @@ weight an atom of that volume would carry.
 1. **Membrane plane.** Like OPM in spirit but much cruder: scan directions
    and slab positions for the ~30 Å slab that holds the most exposed
    hydrophobic residues. :func:`find_membrane` returns its normal and centre.
-2. **Micelle.** A belt around the hydrophobic region with a rounded profile
-   and lumpy, slightly elliptical width. The overall diameter is 90-120 Å,
-   with at least an 8 Å belt around large transmembrane domains. It has a dense outer headgroup
+2. **Micelle.** A smooth oblate ellipsoid centred on the hydrophobic region,
+   matching 2D classes of bo3 in DDM. It is 90-120 Å across (always at least
+   8 Å beyond large transmembrane domains), 52-68 Å thick, slightly elliptical
+   in-plane and only faintly lumpy. It has a dense outer headgroup
    shell and a weak tail core. Enclosed lumens, such as porin channels, stay
    empty.
 3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
@@ -20,12 +21,20 @@ weight an atom of that volume would carry.
    that fits is used. Small proteins may sit off-centre, as
    cs-create-nanodisc-templates (O. Clarke) also allows.
 
-Contrasts are rough estimates from electron densities relative to water.
-Maltoside or phosphocholine heads are about as dense as protein, and alkyl
-tails are less dense than water. Each variant draws headgroups from 0.6-1.1x
-and cores from -0.4 to +0.05x protein contrast; cs-create-nanodisc-templates
-uses 1.0 and -0.5. Drawing them per variant keeps the network from learning
-one exact micelle.
+Contrasts are rough estimates from electron densities relative to vitreous
+ice (protein = 1).
+- DDM: maltose heads (~0.5 e/Å^3) are denser than protein (~0.43), and
+  dodecyl tails (~0.27) are slightly less dense than ice (~0.31). The two
+  occupy roughly equal volumes, so a micelle averages ~0.6x protein. Real
+  2D classes of bo3 in DDM show it nearly as bright as the protein and
+  evenly filled, with no bright rim. Heads and tails also intermix, and at
+  ~10 Å the classes cannot separate them. Micelles therefore draw headgroups
+  from 0.7-1.1x and cores from 0.3-0.6x.
+- Lipid bilayers have a deeper methyl trough: nanodiscs draw headgroups from
+  0.6-1.1x and cores from -0.5 to 0x (cs-create-nanodisc-templates uses 1.0
+  and -0.5).
+Drawing them per variant keeps the network from learning one exact
+environment.
 """
 
 from __future__ import annotations
@@ -134,13 +143,13 @@ class EnvParams:
     kind: str = "micelle"  # 'micelle' or 'nanodisc'
     grid: float = 2.0  # pseudo-atom spacing (Å)
     half_height: float = 21.0  # micelle / bilayer half-thickness (Å)
-    width: float = 18.0  # micelle belt width from the protein surface (Å)
-    diameter: float | None = None  # overall micelle diameter (Å); sets width if given
-    min_width: float = 8.0  # thinnest belt around large TM domains (Å)
+    width: float = 18.0  # micelle reach beyond the TM domain if no diameter is given (Å)
+    diameter: float | None = None  # overall micelle diameter (Å)
+    min_width: float = 8.0  # micelle extends at least this far beyond the TM domain (Å)
     head: float = 7.0  # headgroup shell / layer thickness (Å)
     head_contrast: float = 0.6  # fraction of protein contrast
     core_contrast: float = 0.1
-    lumpiness: float = 0.15  # relative angular variation of the belt width
+    lumpiness: float = 0.15  # relative angular variation of the micelle radius
     ellipticity: float = 0.1
     msp: str | None = None  # nanodisc size; None = smallest that fits
     msp_contrast: float = 1.0
@@ -149,18 +158,26 @@ class EnvParams:
     seed: int = 0
 
 
+def typical_params(kind: str) -> EnvParams:
+    """Middle of the random ranges (used for class-average libraries)."""
+    if kind == "micelle":
+        return EnvParams(kind=kind, half_height=30, diameter=105, head=10, head_contrast=0.9,
+                         core_contrast=0.45, lumpiness=0.03, ellipticity=0.1)
+    return EnvParams(kind=kind, half_height=19, head=7, head_contrast=0.85, core_contrast=-0.25)
+
+
 def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
     """Draw a plausible environment (ranges are deliberately wide)."""
     sizes = list(MSP_OUTER_DIAMETER)
     return EnvParams(
         kind=kind,
-        half_height=rng.uniform(18, 24) if kind == "micelle" else rng.uniform(17, 21),
-        diameter=rng.uniform(90, 120) if kind == "micelle" else None,
-        head=rng.uniform(5, 9),
-        head_contrast=rng.uniform(0.6, 1.1),
-        core_contrast=rng.uniform(-0.4, 0.05),
-        lumpiness=rng.uniform(0.05, 0.25),
-        ellipticity=rng.uniform(0.0, 0.25),
+        **(dict(half_height=rng.uniform(26, 34), diameter=rng.uniform(90, 120),
+                head=rng.uniform(8, 12), head_contrast=rng.uniform(0.7, 1.1),
+                core_contrast=rng.uniform(0.3, 0.6), lumpiness=rng.uniform(0.0, 0.06),
+                ellipticity=rng.uniform(0.0, 0.2))
+           if kind == "micelle" else
+           dict(half_height=rng.uniform(17, 21), head=rng.uniform(5, 9),
+                head_contrast=rng.uniform(0.6, 1.1), core_contrast=rng.uniform(-0.5, 0.0))),
         # Usually the smallest disc that fits; sometimes a bigger one (then None -> fit).
         msp=None if rng.random() < 0.7 else sizes[int(rng.integers(len(sizes)))],
         offcentre=rng.uniform(0, 1) ** 2 if kind == "nanodisc" else 0.0,
@@ -183,7 +200,8 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
     core = local[np.abs(local[:, 2]) < 15]
     core = core if len(core) else slab
     r_tm = np.percentile(np.linalg.norm(core[:, :2] - axis_xy, axis=1), 98)
-    width = p.width if p.diameter is None else max(p.diameter / 2 - r_tm, p.min_width)
+    # Micelle: in-plane radius from the overall diameter, but never thinner than min_width.
+    r_mic = max((p.diameter / 2) if p.diameter else r_tm + p.width, r_tm + p.min_width)
     disc_xy = axis_xy
 
     if p.kind == "nanodisc":
@@ -197,7 +215,7 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
         disc_xy = axis_xy + p.offcentre * slack * np.array([np.cos(a), np.sin(a)])
         extent = np.linalg.norm(disc_xy - axis_xy) + r_in + MSP_WALL + 4
     else:
-        extent = r_prot + width * (1 + p.lumpiness + p.ellipticity) + 6
+        extent = max(r_prot, r_mic * (1 + p.ellipticity + p.lumpiness)) + 6
 
     nxy = int(np.ceil(2 * extent / g)) + 1
     nz = int(np.ceil(2 * zmax / g)) + 1
@@ -214,18 +232,17 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
     filled = np.stack([ndimage.binary_fill_holes(prot[:, :, k]) for k in range(nz)], -1)
 
     # Lateral distance (Å) from the protein in each layer.
-    lat = np.stack([ndimage.distance_transform_edt(~filled[:, :, k]) * g if filled[:, :, k].any()
-                    else np.full((nxy, nxy), np.inf) for k in range(nz)], -1)
     dx, dy = X - axis_xy[0], Y - axis_xy[1]
     ang = np.arctan2(dy, dx)
     rad = np.hypot(X - disc_xy[0], Y - disc_xy[1])
 
     if p.kind == "micelle":
+        # Smooth oblate ellipsoid centred on the TM region (as in 2D classes of
+        # e.g. bo3 in DDM), with slight in-plane ellipticity and faint lumpiness.
         phi1, phi2 = rng.uniform(0, 2 * np.pi, 2)
-        mod = (1 + p.ellipticity * np.cos(2 * (ang - phi1))
-               + p.lumpiness * np.cos(3 * (ang - phi2)) * rng.uniform(0.5, 1))
-        profile = np.sqrt(np.clip(1 - (Z / zmax) ** 2, 0, 1))
-        env = (~filled) & (lat <= width * mod * profile) & (profile > 0)
+        r_xy = r_mic * (1 + p.ellipticity * np.cos(2 * (ang - phi1))
+                        + p.lumpiness * np.cos(3 * (ang - phi2)))
+        env = (~filled) & ((rad / r_xy) ** 2 + (Z / zmax) ** 2 <= 1)
         # Headgroup shell: within `head` Å of the solvent (not of the protein).
         solvent = ~(env | filled)
         d_solv = ndimage.distance_transform_edt(~solvent) * g

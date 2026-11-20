@@ -236,12 +236,14 @@ as pseudo-atoms, which then go through the normal projection pipeline:
      3-fold axis; for ATP synthase it runs along the rotor.
    - The transmembrane helices of bo3 and cyt bd sit at a median tilt of 24°
      to it.
-2. **Micelle.** A belt of rounded profile around the hydrophobic region.
-   - Overall diameter 90–120 Å, with at least an 8 Å belt around large
-     transmembrane domains such as AcrB.
-   - Half-height 18–24 Å; lumpy and slightly elliptical.
-   - A 5–9 Å headgroup shell at 0.6–1.1× protein contrast, and a tail core
-     at −0.4 to +0.05×.
+2. **Micelle.** A smooth oblate ellipsoid centred on the hydrophobic region.
+   - Shape matched by eye to 2D classes of E. coli bo3 in DDM.
+   - 90–120 Å across, always at least 8 Å beyond large transmembrane domains
+     such as AcrB.
+   - 52–68 Å thick; slightly elliptical in-plane, only faintly lumpy.
+   - A 8–12 Å headgroup shell at 0.7–1.1× protein contrast and a core at
+     0.3–0.6×, so the micelle looks evenly filled and nearly as bright as the
+     protein, as in the real classes.
    - Enclosed lumens, such as porin channels, stay empty.
 3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
    inside a 10 Å MSP scaffold with protein contrast.

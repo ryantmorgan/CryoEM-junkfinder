@@ -130,6 +130,48 @@ mammalian,lab`; the default stays `ecoli,lab`.
    No specific contamination reports were found for these; they are
    included because they are big and common.
 
+### Insect cells (Sf9/Sf21, High Five): `--organism insect`
+
+- **Host proteins seen by cryo-EM:**
+  - **Acetyl-CoA carboxylase:** the endogenous T. ni (High Five) enzyme was
+    solved by cryo-EM (Wang et al. 2024,
+    [doi](https://doi.org/10.1016/j.jbc.2024.107800)). It is biotinylated,
+    so it is a likely Strep-Tactin binder. Only its ~170 kDa
+    carboxyltransferase core is modelled.
+  - **RUVBL1/2:** Sf9 RUVBL1/2 co-purified with human proteins expressed in
+    Sf9 (PDB 9WJX/9WJM).
+- **80S ribosome:** Drosophila ovary 80S (6XU8) stands in for the
+  Spodoptera/Trichoplusia ribosome.
+- **Other complexes:** human structures stand in for the insect homologs,
+  which look the same in 2D:
+  - the biotinylated carboxylases (PCC, MCC, PC);
+  - proteasomes, TRiC, VCP and HSP60;
+  - mitochondrial ATP synthase and complex I.
+
+### Yeast (S. cerevisiae, Pichia): `--organism yeast`
+
+- **Pichia alcohol oxidase (AOX1, 600 kDa octamer):** described as the major
+  contaminant of Pichia-expressed preps (Mukhopadhyay et al. 2022,
+  [doi](https://doi.org/10.1002/bit.28181)). Its cryo-EM structure was
+  solved by Vonck et al. 2016
+  ([doi](https://doi.org/10.1371/journal.pone.0159476)). It is
+  methanol-induced and absent from S. cerevisiae.
+- **Fungal fatty acid synthase (2.6 MDa α6β6 barrel, 6TA1):** very abundant,
+  and quite unlike mammalian FASN. It was solved by cryo-EM after
+  co-purifying with tagged Rad3 (Qiu et al. 2019,
+  [doi](https://doi.org/10.1093/jmcb/mjz096)).
+- **Other yeast structures:** ACC (biotinylated), 80S ribosome, 26S and 20S
+  proteasomes, TRiC, Pichia phosphofructokinase (~1 MDa) and mitochondrial
+  ATP synthase.
+- **Human stand-ins:** PCC, MCC, PC, VCP/Cdc48 and HSP60.
+
+### Combining catalogs
+
+Keys are shared across the eukaryotic catalogs for the same complex
+(`ribosome80S`, `proteasome26S`, `tric`, `acc`, …). Combining catalogs keeps
+one entry per complex, and the first catalog listed wins. For example,
+`--organism yeast,lab` uses the yeast ribosome.
+
 Not included yet:
 - **V-ATPase:** every human structure carries a non-native binder (SidK or
   mEAK7).
@@ -384,7 +426,7 @@ and thickness well, and the head/core split less well.
 - [x] Micelle/nanodisc model around TM regions (built-in membrane-plane detection).
 - [ ] Empty micelles and nanodiscs as a "background" variant (they are common false picks).
 - [x] Catalog for mammalian (HEK293) expression.
-- [ ] Catalogs for Sf9/High Five and yeast expression hosts.
+- [x] Catalogs for insect-cell (Sf9/High Five) and yeast (S. cerevisiae, Pichia) hosts.
 - [ ] Phase 2 (started, see below): per-particle classifier.
   1. [x] Prototype on simulated particles (`particle-benchmark`).
   2. [ ] Classify real extracted particles (cryoSPARC `.cs` + stack).

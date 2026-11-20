@@ -208,7 +208,7 @@ MAMMALIAN: tuple[Contaminant, ...] = (
         source_organism=_HS,
     ),
     Contaminant(
-        "proteasome20S_hs", "20S proteasome core (human)", "5LE5", 720, False,
+        "proteasome20S", "20S proteasome core (human)", "5LE5", 720, False,
         "Abundant; barrel of four stacked rings (cf. archaeal T20S in 'lab').",
         source_organism=_HS,
     ),
@@ -233,7 +233,7 @@ MAMMALIAN: tuple[Contaminant, ...] = (
         "Mitochondrial chaperonin; also seen as single heptameric rings.", source_organism=_HS,
     ),
     Contaminant(
-        "atp_synthase_hs", "Mitochondrial ATP synthase (human, monomer)", "8H9S", 595, True,
+        "atp_synthase_mito", "Mitochondrial ATP synthase (human, monomer)", "8H9S", 595, True,
         "Abundant in detergent-solubilised membranes; long stalk distinguishes it.",
         source_organism=_HS,
     ),
@@ -244,7 +244,99 @@ MAMMALIAN: tuple[Contaminant, ...] = (
     ),
 )
 
-CATALOGS: dict[str, tuple[Contaminant, ...]] = {"ecoli": ECOLI, "lab": LAB, "mammalian": MAMMALIAN}
+_M = {c.key: c for c in MAMMALIAN}
+
+
+def _proxy(key: str, host: str) -> Contaminant:
+    """A human structure standing in for the host's own homolog (same 2D appearance)."""
+    from dataclasses import replace
+
+    c = _M[key]
+    return replace(c, notes=f"{c.notes} Human structure used as a stand-in for the {host} "
+                            "homolog (indistinguishable in 2D).")
+
+
+# Insect cells (Sf9, Sf21 / Spodoptera frugiperda; High Five / Trichoplusia ni).
+# Keys match the mammalian catalog where the complex is the same, so combining
+# catalogs keeps one entry per complex (the first catalog listed wins).
+INSECT: tuple[Contaminant, ...] = (
+    Contaminant(
+        "acc", "Acetyl-CoA carboxylase, carboxyltransferase core (T. ni)", "9CV6", 170, False,
+        "Biotinylated, so a likely Strep-Tactin/streptavidin binder. The endogenous High Five "
+        "enzyme was solved by cryo-EM. Only the CT-domain dimer (~175 kDa) is modelled; the "
+        "flexible biotin-carboxylase arms add fuzzy density in real classes.",
+        refs=("10.1016/j.jbc.2024.107800",), source_organism="Trichoplusia ni",
+    ),
+    Contaminant(
+        "ruvbl", "RUVBL1/RUVBL2 (Pontin/Reptin) heterohexamer (Sf9)", "9WJX", 300, False,
+        "Host RUVBL1/2 co-purified with human R2TP/TTT-pathway proteins expressed in Sf9 (PDB "
+        "9WJX/9WJM). Expect it with any client of that chaperone system.",
+        source_organism="Spodoptera frugiperda",
+    ),
+    Contaminant(
+        "ribosome80S", "80S ribosome (D. melanogaster ovary)", "6XU8", 3300, False,
+        "Most abundant large particle in any insect-cell lysate. Drosophila ovary 80S stands in "
+        "for the Spodoptera/Trichoplusia ribosome (Sf9 cells are ovary-derived).",
+        source_organism="Drosophila melanogaster",
+    ),
+    *(_proxy(k, "insect") for k in ("pcc", "mcc", "pyr_carboxylase", "proteasome26S",
+                                    "proteasome20S", "tric", "vcp", "hsp60",
+                                    "atp_synthase_mito", "complex_I")),
+)
+
+# Yeast: S. cerevisiae, plus Pichia pastoris (Komagataella phaffii) entries.
+_SC = "Saccharomyces cerevisiae"
+YEAST: tuple[Contaminant, ...] = (
+    Contaminant(
+        "aox", "Alcohol oxidase AOX1 (Pichia, octamer)", "5HSA", 600, False,
+        "Pichia only, methanol-induced; the major contaminant of Pichia preps (re-tagging was "
+        "needed to remove it in a cGMP vaccine process). Its cryo-EM structure was also solved. "
+        "Do not use for S. cerevisiae.",
+        refs=("10.1002/bit.28181", "10.1371/journal.pone.0159476"),
+        source_organism="Komagataella pastoris",
+    ),
+    Contaminant(
+        "fasn", "Fatty acid synthase (fungal a6b6 barrel)", "6TA1", 2600, False,
+        "Very abundant 2.6 MDa barrel, unlike the mammalian X-shaped FASN. Fungal FAS was solved "
+        "by cryo-EM after co-purifying with tagged Rad3.",
+        refs=("10.1093/jmcb/mjz096",), source_organism=_SC,
+    ),
+    Contaminant(
+        "acc", "Acetyl-CoA carboxylase (yeast, dimer)", "5CSL", 500, False,
+        "Biotinylated; likely Strep-Tactin/streptavidin binder (no cryo-EM report found).",
+        source_organism=_SC,
+    ),
+    Contaminant(
+        "ribosome80S", "80S ribosome (yeast)", "4V88", 3300, False,
+        "Most abundant large particle in any yeast lysate.", source_organism=_SC,
+    ),
+    Contaminant(
+        "proteasome26S", "26S proteasome (yeast)", "5WVK", 1700, False,
+        "Abundant; singly capped particle (all 47 subunits modelled).", source_organism=_SC,
+    ),
+    Contaminant(
+        "proteasome20S", "20S proteasome core (yeast)", "5CZ4", 730, False,
+        "Abundant; barrel of four stacked rings.", source_organism=_SC,
+    ),
+    Contaminant(
+        "tric", "TRiC/CCT chaperonin (yeast)", "5GW4", 950, False,
+        "Abundant double-ring chaperonin.", source_organism=_SC,
+    ),
+    Contaminant(
+        "pfk_pichia", "Phosphofructokinase (Pichia, dodecamer)", "3OPY", 1000, False,
+        "Abundant glycolytic enzyme; large (~1 MDa) a4b4g4 assembly in Pichia.",
+        source_organism="Pichia pastoris",
+    ),
+    Contaminant(
+        "atp_synthase_mito", "Mitochondrial ATP synthase (yeast, monomer)", "6CP6", 570, True,
+        "Abundant in detergent-solubilised membranes.", source_organism=_SC,
+    ),
+    *(_proxy(k, "yeast") for k in ("pcc", "mcc", "pyr_carboxylase", "vcp", "hsp60")),
+)
+
+CATALOGS: dict[str, tuple[Contaminant, ...]] = {
+    "ecoli": ECOLI, "lab": LAB, "mammalian": MAMMALIAN, "insect": INSECT, "yeast": YEAST,
+}
 DEFAULT_CATALOGS = "ecoli,lab"
 
 

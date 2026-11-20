@@ -1,0 +1,9 @@
+{
+ "id": "9WJX",
+ "title": "RUVBL1-RUVBL2 complex",
+ "method": "EM",
+ "resolution": 3.5,
+ "organisms": [
+  "Spodoptera frugiperda"
+ ]
+}

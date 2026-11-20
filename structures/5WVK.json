@@ -1,0 +1,9 @@
+{
+ "id": "5WVK",
+ "title": "Yeast proteasome-ADP-AlFx",
+ "method": "EM",
+ "resolution": 4.2,
+ "organisms": [
+  "Saccharomyces cerevisiae (strain ATCC 204508 / S288c)"
+ ]
+}

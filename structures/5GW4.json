@@ -1,0 +1,9 @@
+{
+ "id": "5GW4",
+ "title": "Structure of Yeast NPP-TRiC",
+ "method": "EM",
+ "resolution": 4.7,
+ "organisms": [
+  "Saccharomyces cerevisiae (strain ATCC 204508 / S288c)"
+ ]
+}

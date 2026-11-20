@@ -163,7 +163,12 @@ def test_catalogs_combine_and_validate():
     assert len(keys) == len(set(keys))
     assert get_catalog("ecoli,ecoli") == get_catalog("ecoli")
     with pytest.raises(SystemExit):
-        get_catalog("yeast")
+        get_catalog("plants")
+    # Eukaryotic hosts share keys for the same complex; the first catalog listed wins.
+    mixed = get_catalog("yeast,mammalian")
+    keys = [c.key for c in mixed]
+    assert len(keys) == len(set(keys))
+    assert next(c for c in mixed if c.key == "ribosome80S").pdb_id == "4V88"
 
 
 def test_describe_uses_sidecar_metadata_and_counts_nucleic_acids(tmp_path):

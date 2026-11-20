@@ -1,0 +1,10 @@
+{
+ "id": "6CP6",
+ "title": "Monomer yeast ATP synthase (F1Fo) reconstituted in nanodisc.",
+ "method": "EM",
+ "resolution": 3.6,
+ "organisms": [
+  "Saccharomyces cerevisiae",
+  "Saccharomyces cerevisiae (strain ATCC 204508 / S288c)"
+ ]
+}

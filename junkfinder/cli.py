@@ -121,6 +121,40 @@ ORG_HELP = (f"Catalog(s), comma-separated. Available: {', '.join(sorted(CATALOGS
             f"(default {DEFAULT_CATALOGS})")
 
 
+def cmd_fit_env(args: argparse.Namespace) -> None:
+    """Fit micelle/nanodisc/SMA parameters to class averages of one membrane protein."""
+    import dataclasses
+    import json
+
+    from .fit_env import describe, fit_environment
+
+    imgs, apix, _ = load_class_averages(args.class_averages, args.cs, None, args.apix)
+    if args.classes:
+        keep = [int(x) for x in args.classes.split(",")]
+        imgs = imgs[keep]
+    structure = args.structure
+    if structure is None:
+        c = next((c for c in get_catalog(DEFAULT_CATALOGS) if c.key == args.key), None)
+        if c is None:
+            raise SystemExit(f"Unknown catalog key '{args.key}'; give --structure PATH instead.")
+        structure = (cached_structure(c.pdb_id, c.assembly, Path(args.cache)) if args.cache else None) \
+            or fetch_structure(c.pdb_id, c.assembly)
+    print(f"Fitting a {args.env} to {len(imgs)} class averages at {apix:.2f} Å/px "
+          f"({args.random} random candidates, {args.refine} refinement rounds)...", flush=True)
+    r = fit_environment(structure, imgs, apix, args.env, n_random=args.random, n_refine=args.refine,
+                        workers=args.workers, invert={"auto": None, "yes": True, "no": False}[args.invert])
+    m, scores, _, p = r["best"]
+    print(f"\nMean best NCC: bare protein {r['bare'][0]:.4f}, typical {args.env} "
+          f"{r['typical'][0]:.4f}, fitted {m:.4f}")
+    print(f"Fitted {args.env}: {describe(p, args.env)}")
+    if args.out:
+        Path(args.out).write_text(json.dumps({
+            "env": args.env, "apix": apix, "score": m, "params": dataclasses.asdict(p),
+            "per_class": {"bare": r["bare"][1], "typical": r["typical"][1], "fitted": scores},
+        }, indent=1, default=float))
+        print(f"Wrote {args.out}")
+
+
 def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     """Train a per-particle classifier on simulated particles and report accuracy."""
     import dataclasses
@@ -246,6 +280,23 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--out", default="junkfinder_out")
     s.add_argument("--no-montage", action="store_true")
     s.set_defaults(func=cmd_screen)
+
+    s = sub.add_parser("fit-env", help="Fit a micelle/nanodisc/SMA model to class averages of a "
+                       "membrane protein (e.g. bo3 in DDM)")
+    s.add_argument("class_averages", help="Class averages .mrc (classes of one protein only)")
+    s.add_argument("--key", default="cyo_bo3", help="Catalog key of the protein (default cyo_bo3)")
+    s.add_argument("--structure", help="Model file instead of a catalog key")
+    s.add_argument("--cache", help="Structure folder (e.g. structures/)")
+    s.add_argument("--env", choices=["micelle", "nanodisc", "sma"], default="micelle")
+    s.add_argument("--cs", help="Matching *_class_averages.cs (for pixel size)")
+    s.add_argument("--apix", type=float, help="Override pixel size (Å)")
+    s.add_argument("--classes", help="Comma-separated class indices to use (default: all)")
+    s.add_argument("--invert", choices=["auto", "yes", "no"], default="auto")
+    s.add_argument("--random", type=int, default=48, help="Random candidates")
+    s.add_argument("--refine", type=int, default=4, help="Local refinement rounds")
+    s.add_argument("--workers", type=int, default=4)
+    s.add_argument("--out", help="Write the fit (JSON)")
+    s.set_defaults(func=cmd_fit_env)
 
     s = sub.add_parser("particle-benchmark",
                        help="Train/evaluate a per-particle classifier on simulated particles (needs torch)")

@@ -178,16 +178,34 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     if args.only:
         keep = {k.strip() for k in args.only.split(",")}
         catalog = [c for c in catalog if c.key in keep]
-    kinds = {"none": [], "micelle": ["micelle"], "nanodisc": ["nanodisc"],
-             "sma": ["sma"], "both": ["micelle", "nanodisc"],
-             "all": ["micelle", "nanodisc", "sma"]}[args.membrane_env]
+    env_kinds = {"none": [], "micelle": ["micelle"], "nanodisc": ["nanodisc"],
+                 "sma": ["sma"], "both": ["micelle", "nanodisc"],
+                 "all": ["micelle", "nanodisc", "sma"]}
+    kinds = env_kinds[args.membrane_env]
+    # Your own protein(s) as extra classes: NAME=PDBID or NAME=path/to/model.
+    local_paths, env_of = {}, {}
+    for item in args.target or []:
+        name, sep, src = item.partition("=")
+        if not sep or not name or not src:
+            raise SystemExit(f"--target expects NAME=PDBID or NAME=PATH, got '{item}'")
+        key = f"target_{name}"
+        if Path(src).exists():
+            local_paths[key] = Path(src)
+            catalog.append(Contaminant(key, f"Target {name}", "", 0, args.target_env != "none"))
+        else:
+            catalog.append(Contaminant(key, f"Target {name}", src.upper(), 0, args.target_env != "none"))
+        env_of[key] = env_kinds[args.target_env]
     rng_train, rng_test = np.random.default_rng(7), np.random.default_rng(123)
     train_views, test_views = {}, {}
     print(f"Rendering {args.train_views} training views and {args.test_views} test views "
           f"for {len(catalog)} structures (membrane environment: {args.membrane_env})...", flush=True)
     for c in catalog:
-        path = cached_structure(c.pdb_id, c.assembly, Path(args.cache)) if args.cache else None
-        path = path or fetch_structure(c.pdb_id, c.assembly)
+        path = local_paths.get(c.key)
+        if path is None:
+            path = cached_structure(c.pdb_id, c.assembly, Path(args.cache)) if args.cache else None
+            path = path or fetch_structure(c.pdb_id, c.assembly,
+                                           **({"cache_dir": Path(args.cache)} if args.cache else {}))
+        kinds = env_of.get(c.key, env_kinds[args.membrane_env])
         if c.membrane and kinds:
             # Several random environments per structure; test ones are never seen in training.
             model = MembraneModel(path)
@@ -319,6 +337,10 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc", "sma", "both", "all"],
                    default="micelle",
                    help="Environment around membrane proteins ('both' = micelle + nanodisc, 'all' adds SMA)")
+    s.add_argument("--target", action="append", metavar="NAME=PDBID|PATH",
+                   help="Your own protein as an extra class (repeatable), e.g. rodA_pbp2=8TJ3")
+    s.add_argument("--target-env", choices=["none", "micelle", "nanodisc", "sma", "both", "all"],
+                   default="micelle", help="Environment around --target proteins (default micelle)")
     s.add_argument("--env-variants", type=int, default=24,
                    help="Random micelles/nanodiscs per membrane protein (train and test separately)")
     s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")

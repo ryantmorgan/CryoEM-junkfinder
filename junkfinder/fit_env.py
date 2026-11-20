@@ -23,9 +23,9 @@ from .membrane import EnvParams, MembraneModel, random_params, typical_params
 from .project import directions_for_step, project_all
 
 # Parameters refined locally, with step sizes (Å or contrast units).
-_STEPS = {"half_height": 2.0, "diameter": 6.0, "head": 1.5, "head_contrast": 0.1,
+_STEPS = {"half_height": 2.0, "diameter": 6.0, "width": 3.0, "head": 1.5, "head_contrast": 0.1,
           "core_contrast": 0.1, "ellipticity": 0.05, "msp_contrast": 0.1, "wall": 1.0}
-_FIELDS = {"micelle": ["half_height", "diameter", "head", "head_contrast", "core_contrast", "ellipticity"],
+_FIELDS = {"micelle": ["half_height", "width", "head", "head_contrast", "core_contrast", "ellipticity"],
            "nanodisc": ["half_height", "head", "head_contrast", "core_contrast", "msp_contrast"],
            "sma": ["half_height", "diameter", "head", "head_contrast", "core_contrast", "msp_contrast", "wall"]}
 

@@ -244,9 +244,11 @@ as pseudo-atoms, which then go through the normal projection pipeline:
      as bright as the protein, as in the real classes.
    - On mean best NCC over the classes, the fitted micelle scores 0.979,
      against 0.951 for my earlier hand-set micelle and 0.883 for bare bo3.
-   - Training draws micelles around that fit: 100–135 Å across (always at
-     least 8 Å beyond large transmembrane domains such as AcrB), 54–74 Å
-     thick, slightly elliptical and only faintly lumpy.
+   - Detergent scales with the transmembrane perimeter, so the in-plane size
+     is set by how far the micelle reaches beyond the TM domain. The bo3 fit
+     gives 21.5 Å; training draws 15–28 Å.
+   - The micelle is 54–74 Å thick, slightly elliptical and only faintly
+     lumpy.
    - Enclosed lumens, such as porin channels, stay empty.
 3. **Nanodisc.** A lipid bilayer disc with a rounded rim, wrapped by a 10 Å
    MSP scaffold.
@@ -272,6 +274,16 @@ For the per-particle benchmark, every membrane protein gets
 different ones for testing. Use `--membrane-env micelle|nanodisc|sma|both|all|none`
 (`both` mixes micelles and nanodiscs, `all` adds SMA);
 the default is `micelle`.
+
+Add your own protein as an extra class with `--target NAME=PDBID` (or
+`NAME=path/to/model.cif`) and `--target-env micelle|nanodisc|sma|...`. On
+real data the classifier then has somewhere to put target particles instead
+of forcing them into a contaminant or "background":
+
+```bash
+junkfinder particle-benchmark --cache structures --target rodA_pbp2=8TJ3 --target-env micelle \
+    --membrane-env all --apix 3.0 --box 128 --steps 40000 --batch 256 --out pb_target
+```
 
 For class-average screening, `build-library --membrane-env micelle` adds a
 typical micelle to the membrane contaminants. `--target-env micelle` does the

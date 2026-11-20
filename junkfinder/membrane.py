@@ -10,9 +10,10 @@ weight an atom of that volume would carry.
    and slab positions for the ~30 Å slab that holds the most exposed
    hydrophobic residues. :func:`find_membrane` returns its normal and centre.
 2. **Micelle.** A smooth oblate ellipsoid centred on the hydrophobic region,
-   fitted to 2D classes of bo3 in DDM (``junkfinder fit-env``). It is
-   100-135 Å across (always at least 8 Å beyond large transmembrane domains),
-   54-74 Å thick, slightly elliptical
+   fitted to 2D classes of bo3 in DDM (``junkfinder fit-env``). Detergent
+   scales with the transmembrane perimeter, so its in-plane size is set by
+   how far it reaches beyond the TM domain: 15-28 Å (the bo3 fit gives 21.5 Å,
+   i.e. 120 Å across). It is 54-74 Å thick, slightly elliptical
    in-plane and only faintly lumpy. A headgroup shell slightly denser than
    the core keeps it evenly filled. Enclosed lumens, such as porin channels, stay
    empty.
@@ -170,7 +171,10 @@ def typical_params(kind: str) -> EnvParams:
     """Middle of the random ranges (used for class-average libraries)."""
     if kind == "micelle":
         # Fitted to 33 class averages of E. coli bo3 in DDM ('junkfinder fit-env').
-        return EnvParams(kind=kind, half_height=32.5, diameter=120, head=9.5, head_contrast=1.16,
+        # bo3's TM domain reaches 38.5 Å from its axis, so the fitted 120 Å
+        # micelle extends 21.5 Å beyond it; that reach is what carries over to
+        # other proteins.
+        return EnvParams(kind=kind, half_height=32.5, width=21.5, head=9.5, head_contrast=1.16,
                          core_contrast=0.48, lumpiness=0.03, ellipticity=0.13)
     if kind == "sma":
         return EnvParams(kind=kind, half_height=22, diameter=110, head=8, head_contrast=0.8,
@@ -193,7 +197,7 @@ def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
                          offcentre=rng.uniform(0, 0.3), seed=int(rng.integers(1 << 31)))
     return EnvParams(
         kind=kind,
-        **(dict(half_height=rng.uniform(27, 37), diameter=rng.uniform(100, 135),
+        **(dict(half_height=rng.uniform(27, 37), width=rng.uniform(15, 28),
                 head=rng.uniform(7, 12), head_contrast=rng.uniform(0.85, 1.4),
                 core_contrast=rng.uniform(0.3, 0.65), lumpiness=rng.uniform(0.0, 0.06),
                 ellipticity=rng.uniform(0.0, 0.2))

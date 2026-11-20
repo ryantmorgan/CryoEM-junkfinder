@@ -187,7 +187,7 @@ the gain from B to C is not purely from the finer pixels.
 
 Per-class accuracy at 40 e/Å² (run C):
 
-- **≥ 90%**: 18 of 24 structures. In order: ribosome, OGDH E2, GroEL, Dps,
+- **≥ 90%**: 17 of 24 structures. In order: ribosome, OGDH E2, GroEL, Dps,
   T20S, ATP synthase, ArnA, β-gal, apoferritin, KatE, AcrB, SDH, GldA, KatG,
   FolE, Bfr, GadB. Background is at 95%.
 - **77–79%**: aldolase, PDH E1, GlmS (60–67% in run B).

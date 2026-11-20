@@ -1,0 +1,9 @@
+{
+ "id": "8EMT",
+ "title": "Cryo-EM analysis of the human aldehyde oxidase from liver",
+ "method": "EM",
+ "resolution": 2.92,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

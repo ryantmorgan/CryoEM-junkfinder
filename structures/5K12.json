@@ -1,0 +1,9 @@
+{
+ "id": "5K12",
+ "title": "Cryo-EM structure of glutamate dehydrogenase at 1.8 A resolution",
+ "method": "EM",
+ "resolution": 1.8,
+ "organisms": [
+  "Bos taurus"
+ ]
+}

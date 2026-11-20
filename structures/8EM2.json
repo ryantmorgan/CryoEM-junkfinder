@@ -1,0 +1,9 @@
+{
+ "id": "8EM2",
+ "title": "Cryo-EM structure of the human GDH/6PGL endoplasmic bifunctional protein",
+ "method": "EM",
+ "resolution": 3.02,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

@@ -1,0 +1,9 @@
+{
+ "id": "8EMR",
+ "title": "Cryo-EM structure of human liver glucosidase II",
+ "method": "EM",
+ "resolution": 2.92,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

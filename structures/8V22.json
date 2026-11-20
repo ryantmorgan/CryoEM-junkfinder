@@ -1,0 +1,9 @@
+{
+ "id": "8V22",
+ "title": "GlnA dodecamer with AMPylation",
+ "method": "EM",
+ "resolution": 2.2,
+ "organisms": [
+  "Escherichia coli"
+ ]
+}

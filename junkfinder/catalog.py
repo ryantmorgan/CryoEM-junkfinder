@@ -46,7 +46,9 @@ ECOLI: tuple[Contaminant, ...] = (
     ),
     Contaminant(
         "acrB", "AcrB multidrug efflux pump (trimer)", "1IWG", 340, True,
-        "Classic Ni-NTA contaminant of E. coli membrane preps (His-rich C-terminus).",
+        "Classic Ni-NTA contaminant of E. coli membrane preps (His-rich C-terminus). Solved at "
+        "2.9 Å as an off-target particle in a His-tagged FtsH/YidC prep.",
+        refs=("10.1107/S2059798325007089",),
     ),
     Contaminant(
         "cyt_bd", "Cytochrome bd-I oxidase (CydABX)", "6RKO", 110, True,
@@ -74,7 +76,10 @@ ECOLI: tuple[Contaminant, ...] = (
     Contaminant(
         "arnA", "ArnA bifunctional enzyme (hexamer)", "1Z7E", 450, False,
         "Very common Ni-NTA contaminant (surface histidine clusters); co-elutes on SEC "
-        "with FolE and GldA.", refs=("10.1002/prot.24364", "10.1107/S2059798326010302"),
+        "with FolE and GldA. Solved as an off-target particle in at least three His-tag "
+        "cryo-EM datasets.",
+        refs=("10.1002/prot.24364", "10.1107/S2059798326010302", "10.1107/S2059798325007089",
+              "10.1107/S2059798326002846"),
     ),
     Contaminant(
         "glmS", "GlmS / GFAT glucosamine-6-phosphate synthase (dimer)", "2J6H", 135, False,
@@ -133,6 +138,23 @@ ECOLI: tuple[Contaminant, ...] = (
         "ribosome70S", "70S ribosome", "4YBB", 2500, False,
         "Large and dense; contaminates soluble preps and lysate-based grids.",
     ),
+    Contaminant(
+        "adhE", "AdhE aldehyde-alcohol dehydrogenase (spirosome segment)", "6AHC", 770, False,
+        "Forms helical spirosomes; seen bound to 70S ribosomes purified from lysate. The model is "
+        "an 8-subunit segment of the filament.",
+        refs=("10.1038/s41467-019-12427-8", "10.1038/srep19936"),
+    ),
+    Contaminant(
+        "glnA", "Glutamine synthetase GlnA (dodecamer)", "8V22", 630, False,
+        "Abundant double hexameric ring; Ni2+ (e.g. leached from Ni-NTA) induces helical stacks of "
+        "dodecamers (filament structure 7W85).",
+        refs=("10.1002/pro.4304",),
+    ),
+    Contaminant(
+        "ldcI", "Inducible lysine decarboxylase LdcI/CadA (decamer)", "3N75", 810, False,
+        "Highly abundant under acid stress; double pentameric ring that also stacks and forms a "
+        "cage with RavA. No contamination report found; included for abundance and size.",
+    ),
 )
 
 # Standard test and calibration samples. They are not from the expression
@@ -159,6 +181,15 @@ LAB: tuple[Contaminant, ...] = (
         "t20s", "20S proteasome (T. acidophilum)", "1PMA", 700, False,
         "Barrel-shaped test specimen; side views look like four stacked rings.",
         source_organism="Thermoplasma acidophilum",
+    ),
+    Contaminant(
+        "gdh_bovine", "Glutamate dehydrogenase (bovine liver, hexamer)", "5K12", 335, False,
+        "High-resolution benchmark specimen.", source_organism="Bos taurus",
+    ),
+    Contaminant(
+        "catalase_bovine", "Catalase (bovine liver, tetramer)", "4BLC", 240, False,
+        "Long-standing EM test specimen (2D and 3D crystals, MicroED).",
+        source_organism="Bos taurus",
     ),
 )
 
@@ -334,8 +365,47 @@ YEAST: tuple[Contaminant, ...] = (
     *(_proxy(k, "yeast") for k in ("pcc", "mcc", "pyr_carboxylase", "vcp", "hsp60")),
 )
 
+# Native human tissue preps (microsomes, mitochondria, filament or vesicle
+# extractions). These complexes were all identified by cryo-EM in brain or
+# liver fractions ("Build and Retrieve"-style). Combine with 'mammalian' for
+# the generic abundant complexes.
+_BRAIN = "10.26508/lsa.202201724"
+_LIVER = "10.1016/j.celrep.2023.112609"
+_MITO = "10.1016/j.mcpro.2023.100666"
+
+
+def _t(key, name, pdb, kda, note, refs):
+    return Contaminant(key, name, pdb, kda, False, note, refs=refs, source_organism=_HS)
+
+
+TISSUE: tuple[Contaminant, ...] = (
+    _t("vault", "Vault (MVP 39-mer barrel)", "9R86", 3900,
+       "Contaminated a tau-filament prep from brain; earlier found in clathrin-vesicle preps. "
+       "The model is one half-vault (39 MVP); the full particle is ~67 nm long, so references "
+       "are truncated in normal boxes.", ("10.1016/j.str.2025.07.014",)),
+    _t("glul", "Glutamine synthetase GLUL (decamer)", "8DNU", 420, "Brain microsomes.", (_BRAIN,)),
+    _t("ferritin_hs", "Ferritin (human brain, 24-mer)", "8DNP", 510,
+       "Brain microsomes; cf. 'apoferritin' (lab) and 'bfr' (E. coli).", (_BRAIN,)),
+    _t("dpysl2", "DPYSL2/CRMP2 (tetramer)", "8DNM", 250, "Brain microsomes.", (_BRAIN,)),
+    _t("aldh1a1", "ALDH1A1 (tetramer)", "8DNO", 220, "Brain and liver microsomes.", (_BRAIN, _LIVER)),
+    _t("glycogen_phos", "Glycogen phosphorylase (liver, dimer)", "8EMS", 190, "Liver microsomes.", (_LIVER,)),
+    _t("h6pd", "H6PD (ER GDH/6PGL, dimer)", "8EM2", 180, "Liver microsomes.", (_LIVER,)),
+    _t("ganab", "Glucosidase II (GANAB, dimer)", "8EMR", 170, "Liver microsomes.", (_LIVER,)),
+    _t("prdx4", "Peroxiredoxin 4 (decamer)", "8EKW", 300, "Liver microsomes.", (_LIVER,)),
+    _t("ces1", "Carboxylesterase 1 (trimer)", "8EOR", 190, "Liver microsomes.", (_LIVER,)),
+    _t("aox1_hs", "Aldehyde oxidase 1 (dimer)", "8EMT", 300, "Liver microsomes.", (_LIVER,)),
+    _t("glud1", "Glutamate dehydrogenase 1 (hexamer)", "7UZM", 370,
+       "Liver microsomes and liver mitochondria.", (_LIVER, _MITO)),
+    _t("scad", "Short-chain acyl-CoA dehydrogenase (tetramer)", "8SGS", 185, "Liver mitochondria.", (_MITO,)),
+    _t("mcad", "Medium-chain acyl-CoA dehydrogenase (tetramer)", "8SGP", 190, "Liver mitochondria.", (_MITO,)),
+    _t("ivd", "Isovaleryl-CoA dehydrogenase (tetramer)", "8SGR", 190, "Liver mitochondria.", (_MITO,)),
+    _t("catalase_hs", "Catalase (human liver, tetramer)", "8SGV", 245, "Liver mitochondrial fraction.", (_MITO,)),
+    _t("aldh2", "ALDH2 (tetramer)", "8SHS", 225, "Liver mitochondria.", (_MITO,)),
+)
+
 CATALOGS: dict[str, tuple[Contaminant, ...]] = {
     "ecoli": ECOLI, "lab": LAB, "mammalian": MAMMALIAN, "insect": INSECT, "yeast": YEAST,
+    "tissue": TISSUE,
 }
 DEFAULT_CATALOGS = "ecoli,lab"
 

@@ -165,6 +165,48 @@ mammalian,lab`; the default stays `ecoli,lab`.
   ATP synthase.
 - **Human stand-ins:** PCC, MCC, PC, VCP/Cdc48 and HSP60.
 
+### Native human tissue: `--organism tissue`
+
+Seventeen complexes identified by cryo-EM in brain and liver fractions:
+
+- **Brain microsomes** (Build-and-Retrieve style;
+  [doi](https://doi.org/10.26508/lsa.202201724)): GLUL, ferritin, DPYSL2,
+  ALDH1A1.
+- **Liver microsomes** ([doi](https://doi.org/10.1016/j.celrep.2023.112609)):
+  glycogen phosphorylase, H6PD, GANAB, PRDX4, CES1, AOX1, GLUD1.
+- **Liver mitochondria**
+  ([doi](https://doi.org/10.1016/j.mcpro.2023.100666)): SCAD, MCAD, IVD,
+  catalase, ALDH2.
+- **Vault:** contaminated a tau-filament prep from brain
+  ([doi](https://doi.org/10.1016/j.str.2025.07.014)).
+
+Use `--organism tissue,mammalian` for native mammalian preps.
+
+### Additions from a cryo-EM literature sweep
+
+- **E. coli:**
+  - AdhE spirosome segment. Spirosomes were seen on lysate-purified 70S
+    ribosomes ([doi](https://doi.org/10.1038/srep19936)); structure
+    [doi](https://doi.org/10.1038/s41467-019-12427-8).
+  - Glutamine synthetase GlnA. Ni²⁺ turns its dodecamers into filaments, so
+    it matters after Ni-NTA ([doi](https://doi.org/10.1002/pro.4304)).
+  - Lysine decarboxylase LdcI. Included for abundance; no contamination
+    report found.
+  - More evidence for AcrB and ArnA as off-target particles in His-tag
+    cryo-EM datasets
+    ([doi](https://doi.org/10.1107/S2059798325007089),
+    [doi](https://doi.org/10.1107/S2059798326002846)).
+- **Lab:** bovine GDH and bovine liver catalase.
+
+**Known but not in the libraries** (too small for useful 2D classes, or not
+single particles):
+- **Small proteins:** SlyD and CAP (IMAC), Hfq, carbonic anhydrase,
+  haemoglobin, streptavidin, Fab or IgG fragments from antibody grids, ALFA
+  nanobodies.
+- **Filaments and lattices:** TMV, F-actin, flagella, phage tail tubes from
+  bacterially contaminated buffers, baculovirus nucleocapsids, streptavidin
+  2D-crystal grids.
+
 ### Combining catalogs
 
 Keys are shared across the eukaryotic catalogs for the same complex

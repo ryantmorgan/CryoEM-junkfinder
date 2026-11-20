@@ -1,0 +1,9 @@
+{
+ "id": "8EMS",
+ "title": "Cryo-EM structure of human liver glycogen phosphorylase",
+ "method": "EM",
+ "resolution": 2.65,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

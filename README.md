@@ -167,33 +167,33 @@ defaults with variables, e.g. `STEPS=40000 APIX=3.0 BOX=128 sbatch ...`.
 
 ### Results
 
-Two runs, both at 64 px and 6 Å/px. Test particles come from view directions
-not seen in training, with fresh noise. Chance level is 4% (24 structures plus
-background).
+Test particles come from view directions not seen in training, with fresh
+noise. Chance level is 4% (24 structures plus background).
 
-- **CPU run**: 3000 steps of 128 particles, 1000 training views per
-  structure, about 1.5 h on 4 CPU cores.
-- **GPU run**: 20000 steps of 256 particles, 3000 views, about 2 h on one RTX
-  6000 Ada that was shared with another job. Training accuracy reached 70%,
-  against 61% for the CPU run.
-
-| Dose (e/Å²) | All 25 classes (CPU → GPU) | OmpF/OmpC and Bfr/ferritin merged | Contaminant called "not background" | Empty picks wrongly called a contaminant |
+| Run | Pixel / box | Training | Hardware | Final train acc |
 |---|---|---|---|---|
-| 10 | 38% → 46% | 41% → 49% | 88% → 92% | 5% → 7% |
-| 20 | 59% → 67% | 62% → 71% | 98% → 98.6% | 5% → 7% |
-| 40 | 72% → 81% | 75% → 85% | 99.8% → 99.9% | 7% → 7% |
+| A | 6 Å, 64 px | 3000 steps × 128, 1000 views | 4 CPU cores, ~1.5 h | 61% |
+| B | 6 Å, 64 px | 20000 steps × 256, 3000 views | 1 RTX 6000 Ada (shared), ~2 h | 70% |
+| C | 3 Å, 128 px | 40000 steps × 256, 3000 views | 1 RTX 6000 Ada (shared), ~9.5 h | 77% |
 
-Per-class accuracy at 40 e/Å² (GPU run):
+| Dose (e/Å²) | All 25 classes (A / B / C) | OmpF/OmpC and Bfr/ferritin merged | Contaminant called "not background" | Empty picks wrongly called a contaminant |
+|---|---|---|---|---|
+| 10 | 38% / 46% / 50% | 41% / 49% / 53% | 88% / 92% / 90% | 5% / 7% / 6% |
+| 20 | 59% / 67% / 75% | 62% / 71% / 78% | 98% / 98.6% / 98.5% | 5% / 7% / 6% |
+| 40 | 72% / 81% / 88% | 75% / 85% / 91% | 99.8% / 99.9% / 99.9% | 7% / 7% / 5% |
 
-- **≥ 90%**: 70S ribosome, GroEL, OGDH E2 core, T20S, Dps, ArnA, ATP
-  synthase, β-gal, apoferritin, AcrB.
-- **80–89%**: KatE, GldA, SDH, KatG, FolE, Bfr, GadB. The longer training
-  helped this group most: GadB went from 46% to 80% and KatG from 67% to 86%.
-- **< 70%**: PDH E1 (67%), GlmS (63%), aldolase (60%), OmpF (53%), cyt bd
-  (47%), OmpC (35%), cyo bo3 (33%).
+Run C changes two things at once, the pixel size and twice as many steps, so
+the gain from B to C is not purely from the finer pixels.
 
-At 20 e/Å² the order of the classes is the same, and the hard group sits at
-17–50%.
+Per-class accuracy at 40 e/Å² (run C):
+
+- **≥ 90%**: 18 of 24 structures. In order: ribosome, OGDH E2, GroEL, Dps,
+  T20S, ATP synthase, ArnA, β-gal, apoferritin, KatE, AcrB, SDH, GldA, KatG,
+  FolE, Bfr, GadB. Background is at 95%.
+- **77–79%**: aldolase, PDH E1, GlmS (60–67% in run B).
+- **53–57%**: OmpC, OmpF, cyo bo3, cyt bd.
+
+At 20 e/Å², the same hard group sits at 31–55%.
 
 The main confusions:
 
@@ -210,20 +210,20 @@ How to read these numbers:
   treat the dose axis as a "signal level" knob, not a literal dose. The
   ordering of classes and the confusions are the more robust results.
 - **No detergent micelle or carbon edges are simulated**, and the background
-  is idealised ice.
-- **Only 6 Å/px has been tested so far.** A run at 3 Å/px (`--apix 3.0 --box
-  128`) is the next test for the hard group.
+  is idealised ice. Without a micelle the membrane proteins (OmpF/OmpC, cyo
+  bo3, cyt bd, AcrB) look smaller and more alike than they will on a real
+  grid.
 
 What this means for the plan:
 
 - **A per-particle "is this a known contaminant?" flag looks realistic.**
   About 99% of contaminant particles were called something other than
-  background at 20 e/Å².
-- **Naming which contaminant it is works for most of the library at moderate
-  signal.**
-- **Small membrane proteins and the 150–250 kDa group will need more.** That
-  means finer pixels, pooling votes across a 2D class, or real labelled
-  particles from the self-training loop.
+  background at 20 e/Å², with about 5% false alarms on empty picks.
+- **Naming which contaminant it is works for about three-quarters of the
+  library**, at moderate signal and at 3 Å/px.
+- **The four small membrane proteins stay near 55% even at the highest
+  signal.** Those will need votes pooled across a 2D class, a micelle in the
+  simulation, or real labelled particles from the self-training loop.
 
 ## Known limitations
 

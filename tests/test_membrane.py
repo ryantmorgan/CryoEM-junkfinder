@@ -24,7 +24,7 @@ def test_normal_is_the_trimer_axis(ompf):
     assert abs(axis @ ompf.membrane.normal) > np.cos(np.radians(10))
 
 
-@pytest.mark.parametrize("kind", ["micelle", "nanodisc"])
+@pytest.mark.parametrize("kind", ["micelle", "nanodisc", "sma"])
 def test_environment_is_a_belt_in_the_membrane_plane(ompf, kind):
     p = EnvParams(kind=kind)
     c, w = build_environment(ompf.xyz, ompf.membrane, p)

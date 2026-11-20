@@ -258,9 +258,16 @@ as pseudo-atoms, which then go through the normal projection pipeline:
    [cs-create-nanodisc-templates](https://github.com/olibclarke/cs-create-nanodisc-templates)
    (O. Clarke).
 
+4. **SMA lipid particle (SMALP).** A native-lipid disc sized to the protein
+   (95–125 Å across), with a thin, diffuse polymer rim about as bright as the
+   lipid heads. It looks evenly filled with no ring, as in 2D classes of bo3
+   in SMA. SMA extracts proteins straight from the native membrane, so host
+   contaminants are especially likely in these preps.
+
 For the per-particle benchmark, every membrane protein gets
 `--env-variants` (default 24) random micelles or discs for training, and
-different ones for testing. Use `--membrane-env micelle|nanodisc|both|none`;
+different ones for testing. Use `--membrane-env micelle|nanodisc|sma|both|all|none`
+(`both` mixes micelles and nanodiscs, `all` adds SMA);
 the default is `micelle`.
 
 For class-average screening, `build-library --membrane-env micelle` adds a

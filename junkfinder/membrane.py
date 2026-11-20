@@ -21,6 +21,10 @@ weight an atom of that volume would carry.
    smallest that fits is used, otherwise a random size that fits. Small proteins may sit off-centre, as
    cs-create-nanodisc-templates (O. Clarke) also allows.
 
+4. **SMA lipid particle.** Like a nanodisc, but sized to the protein (95-125
+   Å across) with a thin, diffuse polymer rim as bright as the lipid heads.
+   It looks evenly filled with no ring, as in 2D classes of bo3 in SMA.
+
 Contrasts are rough estimates from electron densities relative to vitreous
 ice (protein = 1).
 - DDM: maltose heads (~0.5 e/Å^3) are denser than protein (~0.43), and
@@ -141,7 +145,7 @@ def _frame(normal: np.ndarray) -> np.ndarray:
 
 @dataclass
 class EnvParams:
-    kind: str = "micelle"  # 'micelle' or 'nanodisc'
+    kind: str = "micelle"  # 'micelle', 'nanodisc' or 'sma'
     grid: float = 2.0  # pseudo-atom spacing (Å)
     half_height: float = 21.0  # micelle / bilayer half-thickness (Å)
     width: float = 18.0  # micelle reach beyond the TM domain if no diameter is given (Å)
@@ -153,7 +157,8 @@ class EnvParams:
     lumpiness: float = 0.15  # relative angular variation of the micelle radius
     ellipticity: float = 0.1
     msp: str | None = None  # nanodisc size; None = smallest that fits
-    msp_contrast: float = 1.0
+    msp_contrast: float = 1.0  # scaffold (MSP belt, or SMA polymer) contrast
+    wall: float = MSP_WALL  # scaffold thickness (Å)
     msp_half_height: float = 15.0  # scaffold belt height / 2 (Å)
     offcentre: float = 0.0  # 0-1: fraction of the free space the protein is shifted by
     seed: int = 0
@@ -164,6 +169,9 @@ def typical_params(kind: str) -> EnvParams:
     if kind == "micelle":
         return EnvParams(kind=kind, half_height=30, diameter=105, head=10, head_contrast=0.9,
                          core_contrast=0.45, lumpiness=0.03, ellipticity=0.1)
+    if kind == "sma":
+        return EnvParams(kind=kind, half_height=22, diameter=110, head=8, head_contrast=0.8,
+                         core_contrast=0.45, msp_contrast=0.8, wall=5.0)
     return EnvParams(kind=kind, half_height=21, head=8, head_contrast=0.8, core_contrast=0.3,
                      msp_contrast=0.5)
 
@@ -171,6 +179,15 @@ def typical_params(kind: str) -> EnvParams:
 def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
     """Draw a plausible environment (ranges are deliberately wide)."""
     sizes = list(MSP_OUTER_DIAMETER)
+    if kind == "sma":
+        # SMA lipid particles: native-lipid disc sized to the protein, with a thin,
+        # diffuse polymer rim as bright as the lipid heads (no distinct ring).
+        head_c = rng.uniform(0.6, 1.0)
+        return EnvParams(kind=kind, half_height=rng.uniform(20, 25), diameter=rng.uniform(95, 125),
+                         head=rng.uniform(6, 10), head_contrast=head_c,
+                         core_contrast=rng.uniform(0.3, 0.6),
+                         msp_contrast=head_c * rng.uniform(0.8, 1.1), wall=rng.uniform(3, 7),
+                         offcentre=rng.uniform(0, 0.3), seed=int(rng.integers(1 << 31)))
     return EnvParams(
         kind=kind,
         **(dict(half_height=rng.uniform(26, 34), diameter=rng.uniform(90, 120),
@@ -207,16 +224,20 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
     r_mic = max((p.diameter / 2) if p.diameter else r_tm + p.width, r_tm + p.min_width)
     disc_xy = axis_xy
 
-    if p.kind == "nanodisc":
-        radii = sorted(d / 2 - MSP_WALL for d in MSP_OUTER_DIAMETER.values())
-        fit = next((r for r in radii if r >= r_tm), radii[-1])
-        r_in = max(MSP_OUTER_DIAMETER[p.msp] / 2 - MSP_WALL, fit) if p.msp else fit
+    if p.kind in ("nanodisc", "sma"):
+        if p.kind == "sma":
+            r_out = p.diameter / 2 if p.diameter else r_tm + p.width
+            r_in = max(r_out - p.wall, r_tm + p.min_width)
+        else:
+            radii = sorted(d / 2 - p.wall for d in MSP_OUTER_DIAMETER.values())
+            fit = next((r for r in radii if r >= r_tm), radii[-1])
+            r_in = max(MSP_OUTER_DIAMETER[p.msp] / 2 - p.wall, fit) if p.msp else fit
         r_in *= 1 + rng.uniform(-0.04, 0.04)
         # Small proteins in big discs often sit off-centre.
         slack = max(r_in - r_tm - 4, 0.0)
         a = rng.uniform(0, 2 * np.pi)
         disc_xy = axis_xy + p.offcentre * slack * np.array([np.cos(a), np.sin(a)])
-        extent = np.linalg.norm(disc_xy - axis_xy) + r_in + MSP_WALL + 4
+        extent = np.linalg.norm(disc_xy - axis_xy) + r_in + p.wall + 4
     else:
         extent = max(r_prot, r_mic * (1 + p.ellipticity + p.lumpiness)) + 6
 
@@ -261,7 +282,7 @@ def build_environment(xyz: np.ndarray, mem: Membrane, p: EnvParams) -> tuple[np.
         env = disc
         is_head = disc & (d_rim > zmax - p.head)
         contrast = np.where(is_head, p.head_contrast, p.core_contrast)
-        belt = (~filled) & (rad > shoulder) & (d_rim > zmax) & (d_rim <= zmax + MSP_WALL)
+        belt = (~filled) & (rad > shoulder) & (d_rim > zmax) & (d_rim <= zmax + p.wall)
         extra = [(belt, p.msp_contrast)]
 
     coords, weights = [pts[env.reshape(-1)]], [contrast[env].reshape(-1)]

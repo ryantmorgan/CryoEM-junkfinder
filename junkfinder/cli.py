@@ -145,7 +145,8 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
         keep = {k.strip() for k in args.only.split(",")}
         catalog = [c for c in catalog if c.key in keep]
     kinds = {"none": [], "micelle": ["micelle"], "nanodisc": ["nanodisc"],
-             "both": ["micelle", "nanodisc"]}[args.membrane_env]
+             "sma": ["sma"], "both": ["micelle", "nanodisc"],
+             "all": ["micelle", "nanodisc", "sma"]}[args.membrane_env]
     rng_train, rng_test = np.random.default_rng(7), np.random.default_rng(123)
     train_views, test_views = {}, {}
     print(f"Rendering {args.train_views} training views and {args.test_views} test views "
@@ -224,9 +225,9 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--resolution", type=float, default=15.0, help="Low-pass resolution (Å)")
     s.add_argument("--angular-step", type=float, default=7.5, help="Projection spacing (deg)")
     s.add_argument("--cache", help="Structure folder/cache (e.g. structures/ from 'fetch')")
-    s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc"], default="none",
-                   help="Surround membrane contaminants with a detergent micelle or nanodisc")
-    s.add_argument("--target-env", choices=["none", "micelle", "nanodisc"], default="none",
+    s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc", "sma"], default="none",
+                   help="Surround membrane contaminants with a detergent micelle, nanodisc or SMA disc")
+    s.add_argument("--target-env", choices=["none", "micelle", "nanodisc", "sma"], default="none",
                    help="Same for --target models (use it if your target is a membrane protein)")
     s.set_defaults(func=cmd_build)
 
@@ -264,9 +265,9 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--eval-doses", type=float, nargs="+", default=[10.0, 20.0, 40.0])
     s.add_argument("--eval-per-class", type=int, default=400)
     s.add_argument("--threads", type=int)
-    s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc", "both"],
+    s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc", "sma", "both", "all"],
                    default="micelle",
-                   help="Environment around membrane proteins ('both' mixes micelles and nanodiscs)")
+                   help="Environment around membrane proteins ('both' = micelle + nanodisc, 'all' adds SMA)")
     s.add_argument("--env-variants", type=int, default=24,
                    help="Random micelles/nanodiscs per membrane protein (train and test separately)")
     s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")

@@ -237,13 +237,16 @@ as pseudo-atoms, which then go through the normal projection pipeline:
    - The transmembrane helices of bo3 and cyt bd sit at a median tilt of 24°
      to it.
 2. **Micelle.** A smooth oblate ellipsoid centred on the hydrophobic region.
-   - Shape matched by eye to 2D classes of E. coli bo3 in DDM.
-   - 90–120 Å across, always at least 8 Å beyond large transmembrane domains
-     such as AcrB.
-   - 52–68 Å thick; slightly elliptical in-plane, only faintly lumpy.
-   - A 8–12 Å headgroup shell at 0.7–1.1× protein contrast and a core at
-     0.3–0.6×, so the micelle looks evenly filled and nearly as bright as the
-     protein, as in the real classes.
+   - Fitted to 33 class averages of E. coli bo3 in DDM with `junkfinder
+     fit-env`.
+   - The fit gave a micelle 120 Å across and 65 Å thick, with heads at 1.16×
+     and the core at 0.48× protein contrast. That is evenly filled and nearly
+     as bright as the protein, as in the real classes.
+   - On mean best NCC over the classes, the fitted micelle scores 0.979,
+     against 0.951 for my earlier hand-set micelle and 0.883 for bare bo3.
+   - Training draws micelles around that fit: 100–135 Å across (always at
+     least 8 Å beyond large transmembrane domains such as AcrB), 54–74 Å
+     thick, slightly elliptical and only faintly lumpy.
    - Enclosed lumens, such as porin channels, stay empty.
 3. **Nanodisc.** A lipid bilayer disc with a rounded rim, wrapped by a 10 Å
    MSP scaffold.
@@ -278,6 +281,20 @@ targets and contaminants are compared on equal terms.
 The contrast ranges are rough estimates from electron densities, not fitted
 to data. A real dataset with a known micelle (for example bo3 in DDM) is the
 way to tune them.
+
+### Fitting the environment to your own data
+
+```bash
+junkfinder fit-env bo3_classes.mrc --key cyo_bo3 --cache structures --env micelle --out fit.json
+```
+
+It needs class averages of the one membrane protein only, not a mixture. It
+tries random micelles, nanodiscs or SMA discs, then refines around the best.
+Each candidate is scored by how well its projections match the classes
+(mean best NCC). It takes about 20 minutes on 4 CPU cores.
+
+The score is dominated by the overall outline at 12 Å. So it pins down size
+and thickness well, and the head/core split less well.
 
 ## Known limitations
 

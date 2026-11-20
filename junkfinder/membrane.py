@@ -10,8 +10,9 @@ weight an atom of that volume would carry.
    and slab positions for the ~30 Å slab that holds the most exposed
    hydrophobic residues. :func:`find_membrane` returns its normal and centre.
 2. **Micelle.** A smooth oblate ellipsoid centred on the hydrophobic region,
-   matching 2D classes of bo3 in DDM. It is 90-120 Å across (always at least
-   8 Å beyond large transmembrane domains), 52-68 Å thick, slightly elliptical
+   fitted to 2D classes of bo3 in DDM (``junkfinder fit-env``). It is
+   100-135 Å across (always at least 8 Å beyond large transmembrane domains),
+   54-74 Å thick, slightly elliptical
    in-plane and only faintly lumpy. A headgroup shell slightly denser than
    the core keeps it evenly filled. Enclosed lumens, such as porin channels, stay
    empty.
@@ -32,8 +33,9 @@ ice (protein = 1).
   occupy roughly equal volumes, so a micelle averages ~0.6x protein. Real
   2D classes of bo3 in DDM show it nearly as bright as the protein and
   evenly filled, with no bright rim. Heads and tails also intermix, and at
-  ~10 Å the classes cannot separate them. Micelles therefore draw headgroups
-  from 0.7-1.1x and cores from 0.3-0.6x.
+  ~10 Å the classes cannot separate them. The fit to bo3/DDM gave heads at
+  1.16x and the core at 0.48x protein contrast. Micelles draw heads from
+  0.85-1.4x and cores from 0.3-0.65x.
 - Lipid bilayers have a deeper methyl trough (cs-create-nanodisc-templates
   uses heads 1.0, core -0.5). Real 2D classes of bo3 in MSP1E3D1 discs look
   evenly filled, though, with no bright scaffold ring. So nanodiscs draw
@@ -167,8 +169,9 @@ class EnvParams:
 def typical_params(kind: str) -> EnvParams:
     """Middle of the random ranges (used for class-average libraries)."""
     if kind == "micelle":
-        return EnvParams(kind=kind, half_height=30, diameter=105, head=10, head_contrast=0.9,
-                         core_contrast=0.45, lumpiness=0.03, ellipticity=0.1)
+        # Fitted to 33 class averages of E. coli bo3 in DDM ('junkfinder fit-env').
+        return EnvParams(kind=kind, half_height=32.5, diameter=120, head=9.5, head_contrast=1.16,
+                         core_contrast=0.48, lumpiness=0.03, ellipticity=0.13)
     if kind == "sma":
         return EnvParams(kind=kind, half_height=22, diameter=110, head=8, head_contrast=0.8,
                          core_contrast=0.45, msp_contrast=0.8, wall=5.0)
@@ -190,9 +193,9 @@ def random_params(kind: str, rng: np.random.Generator) -> EnvParams:
                          offcentre=rng.uniform(0, 0.3), seed=int(rng.integers(1 << 31)))
     return EnvParams(
         kind=kind,
-        **(dict(half_height=rng.uniform(26, 34), diameter=rng.uniform(90, 120),
-                head=rng.uniform(8, 12), head_contrast=rng.uniform(0.7, 1.1),
-                core_contrast=rng.uniform(0.3, 0.6), lumpiness=rng.uniform(0.0, 0.06),
+        **(dict(half_height=rng.uniform(27, 37), diameter=rng.uniform(100, 135),
+                head=rng.uniform(7, 12), head_contrast=rng.uniform(0.85, 1.4),
+                core_contrast=rng.uniform(0.3, 0.65), lumpiness=rng.uniform(0.0, 0.06),
                 ellipticity=rng.uniform(0.0, 0.2))
            if kind == "micelle" else
            dict(half_height=rng.uniform(19, 24), head=rng.uniform(6, 10),

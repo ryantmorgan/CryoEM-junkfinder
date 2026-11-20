@@ -1,0 +1,10 @@
+{
+ "id": "4YG2",
+ "title": "X-ray crystal structur of Escherichia coli RNA polymerase sigma70 holoenzyme",
+ "method": "X-ray",
+ "resolution": 3.7,
+ "organisms": [
+  "Escherichia coli K12",
+  "Escherichia coli O157:H7"
+ ]
+}

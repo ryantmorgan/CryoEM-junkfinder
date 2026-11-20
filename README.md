@@ -198,6 +198,18 @@ Use `--organism tissue,mammalian` for native mammalian preps.
     [doi](https://doi.org/10.1107/S2059798326002846)).
 - **Lab:** bovine GDH and bovine liver catalase.
 
+**Resin-by-resin sweep** ([docs/resin-sweep.md](docs/resin-sweep.md)).
+Outside IMAC and Strep-Tactin, resins only pick up whatever is abundant in the
+host. The sweep added four E. coli entries:
+- GlnA: its histidines chelate Ni²⁺, and nickel stacks it into filaments.
+- Complex I (nuo).
+- AhpC.
+- RNA polymerase.
+
+The particle-classifier benchmarks above were run with the earlier, smaller
+catalogs (24 entries). A fresh run with the current catalogs is not directly
+comparable.
+
 **Known but not in the libraries** (too small for useful 2D classes, or not
 single particles):
 - **Small proteins:** SlyD and CAP (IMAC), Hfq, carbonic anhydrase,

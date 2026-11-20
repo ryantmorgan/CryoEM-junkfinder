@@ -146,14 +146,30 @@ ECOLI: tuple[Contaminant, ...] = (
     ),
     Contaminant(
         "glnA", "Glutamine synthetase GlnA (dodecamer)", "8V22", 630, False,
-        "Abundant double hexameric ring; Ni2+ (e.g. leached from Ni-NTA) induces helical stacks of "
-        "dodecamers (filament structure 7W85).",
+        "Abundant double hexameric ring. N-terminal histidines chelate Ni2+ (the IMAC chemistry), "
+        "and Ni2+ stacks dodecamers into helical filaments (7W85); glutamate or ATP reverses it, "
+        "so Ni preps can show both rings and short stacks.",
         refs=("10.1002/pro.4304",),
     ),
     Contaminant(
         "ldcI", "Inducible lysine decarboxylase LdcI/CadA (decamer)", "3N75", 810, False,
         "Highly abundant under acid stress; double pentameric ring that also stacks and forms a "
         "cage with RavA. No contamination report found; included for abundance and size.",
+    ),
+    Contaminant(
+        "nuo", "Respiratory complex I (NuoA-N)", "7NYR", 550, True,
+        "Abundant in detergent-solubilised E. coli membranes; L-shaped. Included for abundance "
+        "(resin sweep: no resin-specific report).",
+        source_organism="Escherichia coli B",
+    ),
+    Contaminant(
+        "ahpC", "Alkyl hydroperoxide reductase AhpC (decamer)", "4O5R", 205, False,
+        "Very abundant ring-shaped peroxiredoxin decamer. Included for abundance.",
+    ),
+    Contaminant(
+        "rnap", "RNA polymerase sigma70 holoenzyme", "4YG2", 450, False,
+        "Abundant; nucleic-acid binding lets it ride along on nucleic-acid-bridged complexes. "
+        "Included for abundance.",
     ),
 )
 

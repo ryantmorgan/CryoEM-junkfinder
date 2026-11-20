@@ -16,6 +16,8 @@ from scipy.ndimage import gaussian_filter
 SIGMA_FACTOR = 1.0 / (np.pi * np.sqrt(2.0))
 
 
+VOLUME_PER_Z = 2.0 * 1.08 * 1.21  # Å^3 per unit atomic number (mass ≈ 2Z Da, +8% H)
+
 def fibonacci_directions(n: int, hemisphere: bool = False) -> np.ndarray:
     """Approximately uniform unit vectors on the sphere (or upper hemisphere)."""
     i = np.arange(n) + 0.5

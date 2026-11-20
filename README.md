@@ -209,10 +209,9 @@ How to read these numbers:
   contrast (ΔV = 2 V) are only known roughly, and they enter as a product. So
   treat the dose axis as a "signal level" knob, not a literal dose. The
   ordering of classes and the confusions are the more robust results.
-- **No detergent micelle or carbon edges are simulated**, and the background
-  is idealised ice. Without a micelle the membrane proteins (OmpF/OmpC, cyo
-  bo3, cyt bd, AcrB) look smaller and more alike than they will on a real
-  grid.
+- **These three runs used bare membrane proteins**, without a micelle or
+  nanodisc (added since, see below). No carbon edges are simulated, and the
+  background is idealised ice.
 
 What this means for the plan:
 
@@ -225,13 +224,48 @@ What this means for the plan:
   signal.** Those will need votes pooled across a 2D class, a micelle in the
   simulation, or real labelled particles from the self-training loop.
 
+### Micelles and nanodiscs
+
+Membrane proteins are seen inside a detergent micelle or nanodisc, and in 2D
+that belt is a large part of the particle. `junkfinder/membrane.py` adds one
+as pseudo-atoms, which then go through the normal projection pipeline:
+
+1. **Membrane plane.** Scan for the ~30 Å slab with the most exposed
+   hydrophobic residues. This is OPM-like in spirit but needs no download.
+   - For the trimers (AcrB, SDH, OmpF, OmpC) the normal is within 4° of the
+     3-fold axis; for ATP synthase it runs along the rotor.
+   - The transmembrane helices of bo3 and cyt bd sit at a median tilt of 24°
+     to it.
+2. **Micelle.** A belt of rounded profile around the hydrophobic region.
+   - Width 13–24 Å from the protein; half-height 18–24 Å; lumpy and slightly
+     elliptical.
+   - A 5–9 Å headgroup shell at 0.4–0.9× protein contrast, and a tail core
+     at −0.1 to 0.25×.
+   - Enclosed lumens, such as porin channels, stay empty.
+3. **Nanodisc.** A lipid bilayer disc (headgroup layers plus a tail core)
+   inside a two-helix MSP belt with protein contrast. The disc is the
+   smallest of MSP1D1, MSP1E3D1 and MSP2N2 that fits around the protein.
+
+For the per-particle benchmark, every membrane protein gets
+`--env-variants` (default 24) random micelles or discs for training, and
+different ones for testing. Use `--membrane-env micelle|nanodisc|both|none`;
+the default is `micelle`.
+
+For class-average screening, `build-library --membrane-env micelle` adds a
+typical micelle to the membrane contaminants. `--target-env micelle` does the
+same for your own `--target` model if it is a membrane protein, so that
+targets and contaminants are compared on equal terms.
+
+The contrast ranges are rough estimates from electron densities, not fitted
+to data. A real dataset with a known micelle (for example bo3 in DDM) is the
+way to tune them.
+
 ## Known limitations
 
-- **Detergent micelles and nanodiscs are not modelled yet.** In class averages
-  of membrane proteins the micelle is a big feature, which lowers scores for
-  membrane references. Comparing against your own target (also without a
-  micelle) keeps the comparison fair, but absolute scores will be lower than
-  for soluble proteins.
+- **Micelles and nanodiscs are approximate.** Membrane references can be
+  surrounded with a micelle or nanodisc (see below). Its shape, size and
+  contrast are generic, not fitted to a particular detergent, so absolute
+  scores for membrane references stay lower than for soluble proteins.
 - **Thresholds are uncalibrated.** Defaults (`--min-score 0.5`,
   `--min-margin 0.03`) are placeholders. Calibrating them on real datasets is
   the next job.
@@ -245,7 +279,8 @@ What this means for the plan:
   nanodiscs, 3,446 movies, 851 GB) and EMPIAR-13232/13235 (clarified E. coli
   lysate, 7,900-9,700 movies, 2-2.4 TB each).
 - [ ] Choose the mask radius automatically from each class average.
-- [ ] Micelle/nanodisc model around TM regions (e.g. using OPM orientations).
+- [x] Micelle/nanodisc model around TM regions (built-in membrane-plane detection).
+- [ ] Empty micelles and nanodiscs as a "background" variant (they are common false picks).
 - [ ] Catalogs for HEK293, Sf9/High Five and yeast expression hosts.
 - [ ] Phase 2 (started, see below): per-particle classifier.
   1. [x] Prototype on simulated particles (`particle-benchmark`).

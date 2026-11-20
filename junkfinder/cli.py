@@ -86,6 +86,7 @@ def cmd_build(args: argparse.Namespace) -> None:
         apix=args.apix, box=args.box, resolution=args.resolution,
         angular_step=args.angular_step,
         cache_dir=Path(args.cache) if args.cache else None,
+        membrane_env=args.membrane_env, target_env=args.target_env,
     )
     if not any(e.kind == "contaminant" for e in lib.entries):
         print("warning: library contains no contaminant references")
@@ -129,6 +130,7 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     import torch
 
     from .classifier import evaluate, report, train
+    from .membrane import MembraneModel
     from .particles import Microscope, ParticleSimulator, build_views
     from .structures import load_atoms
 
@@ -142,23 +144,40 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     if args.only:
         keep = {k.strip() for k in args.only.split(",")}
         catalog = [c for c in catalog if c.key in keep]
-    structs = {}
+    kinds = {"none": [], "micelle": ["micelle"], "nanodisc": ["nanodisc"],
+             "both": ["micelle", "nanodisc"]}[args.membrane_env]
+    rng_train, rng_test = np.random.default_rng(7), np.random.default_rng(123)
+    train_views, test_views = {}, {}
+    print(f"Rendering {args.train_views} training views and {args.test_views} test views "
+          f"for {len(catalog)} structures (membrane environment: {args.membrane_env})...", flush=True)
     for c in catalog:
         path = cached_structure(c.pdb_id, c.assembly, Path(args.cache)) if args.cache else None
-        structs[c.key] = load_atoms(path or fetch_structure(c.pdb_id, c.assembly))
-    print(f"Rendering {args.train_views} training views and {args.test_views} test views "
-          f"for {len(structs)} structures...", flush=True)
-    train_views = build_views(structs, args.train_views, args.box, args.apix)
-    test_views = build_views(structs, args.test_views, args.box, args.apix, rng=np.random.default_rng(123))
+        path = path or fetch_structure(c.pdb_id, c.assembly)
+        if c.membrane and kinds:
+            # Several random environments per structure; test ones are never seen in training.
+            model = MembraneModel(path)
+            for views, n, rng in ((train_views, args.train_views, rng_train),
+                                  (test_views, args.test_views, rng_test)):
+                k = max(1, min(args.env_variants, n))
+                parts = [build_views({c.key: model.variant(kinds[i % len(kinds)], rng)},
+                                     n // k + (i < n % k), args.box, args.apix, rng=rng)[c.key]
+                         for i in range(k)]
+                views[c.key] = np.concatenate(parts)
+        else:
+            atoms = load_atoms(path)
+            train_views[c.key] = build_views({c.key: atoms}, args.train_views, args.box, args.apix)[c.key]
+            test_views[c.key] = build_views({c.key: atoms}, args.test_views, args.box, args.apix,
+                                            rng=rng_test)[c.key]
 
     scope = Microscope(apix=args.apix, dose=(args.dose_min, args.dose_max))
     sim = ParticleSimulator(train_views, scope, device=device)
     print(f"Training ({args.steps} steps of {args.batch}, dose {args.dose_min}-{args.dose_max} e/Å²)...")
     model, log = train(sim, steps=args.steps, batch=args.batch, units=args.units)
     torch.save({"state_dict": model.state_dict(), "keys": sim.keys, "units": args.units,
-                "box": args.box, "apix": args.apix}, out / "particle_classifier.pt")
+                "box": args.box, "apix": args.apix, "membrane_env": args.membrane_env}, out / "particle_classifier.pt")
 
-    summary = {"keys": sim.keys, "train_log": dataclasses.asdict(log), "eval": {}}
+    summary = {"keys": sim.keys, "membrane_env": args.membrane_env,
+               "train_log": dataclasses.asdict(log), "eval": {}}
     text = []
     for dose in args.eval_doses:
         test_sim = ParticleSimulator(test_views, dataclasses.replace(scope, dose=dose), device=device)
@@ -205,6 +224,10 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--resolution", type=float, default=15.0, help="Low-pass resolution (Å)")
     s.add_argument("--angular-step", type=float, default=7.5, help="Projection spacing (deg)")
     s.add_argument("--cache", help="Structure folder/cache (e.g. structures/ from 'fetch')")
+    s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc"], default="none",
+                   help="Surround membrane contaminants with a detergent micelle or nanodisc")
+    s.add_argument("--target-env", choices=["none", "micelle", "nanodisc"], default="none",
+                   help="Same for --target models (use it if your target is a membrane protein)")
     s.set_defaults(func=cmd_build)
 
     s = sub.add_parser("screen", help="Compare cryoSPARC class averages to the library")
@@ -241,6 +264,11 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--eval-doses", type=float, nargs="+", default=[10.0, 20.0, 40.0])
     s.add_argument("--eval-per-class", type=int, default=400)
     s.add_argument("--threads", type=int)
+    s.add_argument("--membrane-env", choices=["none", "micelle", "nanodisc", "both"],
+                   default="micelle",
+                   help="Environment around membrane proteins ('both' mixes micelles and nanodiscs)")
+    s.add_argument("--env-variants", type=int, default=24,
+                   help="Random micelles/nanodiscs per membrane protein (train and test separately)")
     s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")
     s.set_defaults(func=cmd_particle_benchmark)
 

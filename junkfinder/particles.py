@@ -31,11 +31,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .project import fibonacci_directions, project
+from .project import VOLUME_PER_Z, fibonacci_directions, project
 
 SIGMA_E_300KV = 6.53e-4  # interaction constant, rad / (V Å)
 WAVELENGTH_300KV = 0.01969  # Å
-VOLUME_PER_Z = 2.0 * 1.08 * 1.21  # Å^3 per unit atomic number (mass ≈ 2Z Da, +8% H)
 
 
 def random_directions(n: int, rng: np.random.Generator) -> np.ndarray:

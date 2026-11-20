@@ -59,9 +59,14 @@ class Library:
 
 def make_entry(
     key: str, name: str, source: str, kind: str, structure_path: Path,
-    directions: np.ndarray, box: int, apix: float, resolution: float,
+    directions: np.ndarray, box: int, apix: float, resolution: float, env: str = "none",
 ) -> LibraryEntry:
-    coords, weights = load_atoms(structure_path)
+    if env == "none":
+        coords, weights = load_atoms(structure_path)
+    else:
+        from .membrane import EnvParams, MembraneModel
+
+        coords, weights = MembraneModel(structure_path).variant(env, params=EnvParams(kind=env))
     dim = max_dimension(coords)
     if dim > box * apix * 0.95:
         print(f"  warning: {key} is {dim:.0f} Å across but the box is {box * apix:.0f} Å; "
@@ -80,8 +85,15 @@ def build_library(
     angular_step: float = 7.5,
     cache_dir: Path | None = None,
     skip_failed: bool = True,
+    membrane_env: str = "none",
+    target_env: str = "none",
 ) -> Library:
-    """Render projections for each contaminant (downloaded unless given locally) and target."""
+    """Render projections for each contaminant (downloaded unless given locally) and target.
+
+    ``membrane_env`` ('none', 'micelle' or 'nanodisc') surrounds membrane
+    contaminants with a typical micelle or nanodisc; ``target_env`` does the
+    same for the targets.
+    """
     directions = directions_for_step(angular_step)
     local_structures = local_structures or {}
     entries: list[LibraryEntry] = []
@@ -95,7 +107,8 @@ def build_library(
         try:
             path = local_structures.get(c.key) or fetch_structure(c.pdb_id, c.assembly, **fetch_kwargs)
             entries.append(make_entry(c.key, c.name, c.pdb_id, "contaminant", Path(path),
-                                      directions, box, apix, resolution))
+                                      directions, box, apix, resolution,
+                                      env=membrane_env if c.membrane else "none"))
         except Exception as exc:  # noqa: BLE001
             if not skip_failed:
                 raise
@@ -105,7 +118,7 @@ def build_library(
         t = Path(t)
         print(f"[target] {t.name}", flush=True)
         entries.append(make_entry(f"target:{t.stem}", f"Your target ({t.name})", str(t),
-                                  "target", t, directions, box, apix, resolution))
+                                  "target", t, directions, box, apix, resolution, env=target_env))
 
     if not entries:
         raise RuntimeError("Library is empty: no structures could be loaded.")

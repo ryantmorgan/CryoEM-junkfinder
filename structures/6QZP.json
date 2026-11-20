@@ -1,0 +1,9 @@
+{
+ "id": "6QZP",
+ "title": "High-resolution cryo-EM structure of the human 80S ribosome",
+ "method": "EM",
+ "resolution": 2.9,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

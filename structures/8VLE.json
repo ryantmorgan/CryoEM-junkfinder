@@ -1,0 +1,9 @@
+{
+ "id": "8VLE",
+ "title": "Composite structure of human FASN with NADPH in State 1",
+ "method": "EM",
+ "resolution": 3.3,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

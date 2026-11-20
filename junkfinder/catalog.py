@@ -87,8 +87,9 @@ ECOLI: tuple[Contaminant, ...] = (
     ),
     Contaminant(
         "ogdh_E2", "2-Oxoglutarate dehydrogenase E2 core (SucB, 24-mer cube)", "1E2O", 700, False,
-        "Listed as ODO2; the cubic E2 core gives very distinctive classes.",
-        refs=("10.1016/j.bbagen.2006.03.027",),
+        "Listed as ODO2; the cubic E2 core gives very distinctive classes. Identified "
+        "by cryo-EM (as DLST) co-purifying with designed proteins.",
+        refs=("10.1016/j.bbagen.2006.03.027", "10.1016/j.yjsbx.2025.100120"),
     ),
     Contaminant(
         "folE", "GTP cyclohydrolase I (FolE, decamer)", "1GTP", 250, False,
@@ -161,7 +162,89 @@ LAB: tuple[Contaminant, ...] = (
     ),
 )
 
-CATALOGS: dict[str, tuple[Contaminant, ...]] = {"ecoli": ECOLI, "lab": LAB}
+# Mammalian (HEK293 / Expi293) expression. Three groups:
+# 1. Reported by cryo-EM + mass spectrometry (refs given).
+# 2. The other endogenously biotinylated carboxylases. They should bind
+#    Strep-Tactin / streptavidin for the same reason PCC does, but no cryo-EM
+#    report was found.
+# 3. Large, abundant complexes that are frequent off-target particles in
+#    lysate-derived samples. No specific reports were found; they are
+#    included because they are big and common.
+_HS = "Homo sapiens"
+_BELCHER = "10.1042/BSR20260232"
+MAMMALIAN: tuple[Contaminant, ...] = (
+    Contaminant(
+        "pcc", "Propionyl-CoA carboxylase (PCCA/PCCB, a6b6)", "7YBU", 750, False,
+        "Endogenously biotinylated, so it binds Strep-Tactin; identified by cryo-EM + MS "
+        "in twin-Strep purifications from HEK293.",
+        refs=(_BELCHER,), source_organism=_HS,
+    ),
+    Contaminant(
+        "prmt5_mep50", "PRMT5:MEP50 methylosome (hetero-octamer)", "4GQB", 450, False,
+        "Identified by cryo-EM + MS in FLAG purifications from HEK293.",
+        refs=(_BELCHER,), source_organism=_HS,
+    ),
+    Contaminant(
+        "mcc", "3-Methylcrotonyl-CoA carboxylase (MCCC1/MCCC2, a6b6)", "8XL6", 750, False,
+        "Biotinylated like PCC; expected Strep-Tactin/streptavidin binder (no cryo-EM "
+        "report found). Same a6b6 architecture as PCC, so expect confusion between them.",
+        source_organism=_HS,
+    ),
+    Contaminant(
+        "pyr_carboxylase", "Pyruvate carboxylase (PC, tetramer)", "8XL9", 520, False,
+        "Biotinylated; expected Strep-Tactin/streptavidin binder (no cryo-EM report found). "
+        "Only ~300 of ~520 kDa is modelled (flexible biotin-carboxylase domains), so real "
+        "particles look larger than the reference.",
+        source_organism=_HS,
+    ),
+    Contaminant(
+        "ribosome80S", "80S ribosome (human)", "6QZP", 3300, False,
+        "Most abundant large particle in any mammalian lysate.", source_organism=_HS,
+    ),
+    Contaminant(
+        "proteasome26S", "26S proteasome (human)", "5GJR", 2500, False,
+        "Abundant; elongated with one or two 19S caps. This singly capped model is ~450 Å "
+        "long, longer than a 384 Å box, so references are truncated (as particles would be).",
+        source_organism=_HS,
+    ),
+    Contaminant(
+        "proteasome20S_hs", "20S proteasome core (human)", "5LE5", 720, False,
+        "Abundant; barrel of four stacked rings (cf. archaeal T20S in 'lab').",
+        source_organism=_HS,
+    ),
+    Contaminant(
+        "tric", "TRiC/CCT chaperonin (closed)", "7LUM", 950, False,
+        "Abundant double-ring chaperonin; resembles GroEL in some views.", source_organism=_HS,
+    ),
+    Contaminant(
+        "vcp", "VCP/p97 (hexamer)", "5FTK", 540, False,
+        "Abundant AAA+ hexamer with a distinctive two-ring side view.", source_organism=_HS,
+    ),
+    Contaminant(
+        "acly", "ATP citrate lyase (tetramer)", "6UI9", 490, False,
+        "Abundant cytosolic tetramer.", source_organism=_HS,
+    ),
+    Contaminant(
+        "fasn", "Fatty acid synthase (dimer)", "8VLE", 540, False,
+        "Abundant in HEK cells; flexible X-shaped dimer (composite model).", source_organism=_HS,
+    ),
+    Contaminant(
+        "hsp60", "HSP60-HSP10 'football' complex", "4PJ1", 1000, False,
+        "Mitochondrial chaperonin; also seen as single heptameric rings.", source_organism=_HS,
+    ),
+    Contaminant(
+        "atp_synthase_hs", "Mitochondrial ATP synthase (human, monomer)", "8H9S", 595, True,
+        "Abundant in detergent-solubilised membranes; long stalk distinguishes it.",
+        source_organism=_HS,
+    ),
+    Contaminant(
+        "complex_I", "Respiratory complex I (human)", "5XTD", 964, True,
+        "Abundant in detergent-solubilised mitochondrial membranes; L-shaped.",
+        source_organism=_HS,
+    ),
+)
+
+CATALOGS: dict[str, tuple[Contaminant, ...]] = {"ecoli": ECOLI, "lab": LAB, "mammalian": MAMMALIAN}
 DEFAULT_CATALOGS = "ecoli,lab"
 
 

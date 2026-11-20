@@ -1,0 +1,9 @@
+{
+ "id": "7LUM",
+ "title": "Human TRiC in ATP/AlFx closed state",
+ "method": "EM",
+ "resolution": 4.5,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

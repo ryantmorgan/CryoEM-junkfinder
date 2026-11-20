@@ -106,6 +106,35 @@ Each catalog entry lists DOIs reporting it as a co-purifying contaminant
   impure His-tag membrane prep (bo3, OmpF, SQR), detergent-solubilised K12
   membranes (OmpC, SQR) and size-selected K12 lysate (KatG, GadB)
   ([doi](https://doi.org/10.1038/s41592-020-01021-2))
+- Carr et al. 2025, DLST (the OGDH E2 core) identified by cryo-EM as a
+  co-purifier ([doi](https://doi.org/10.1016/j.yjsbx.2025.100120))
+
+### Mammalian (HEK293/Expi293): `--organism mammalian`
+
+Fourteen human complexes, in three tiers. Select them with `--organism
+mammalian,lab`; the default stays `ecoli,lab`.
+
+1. **Reported by cryo-EM plus mass spectrometry.** Propionyl-CoA
+   carboxylase (twin-Strep purifications) and PRMT5:MEP50 (FLAG), both from
+   HEK293 (Belcher et al. 2026,
+   [doi](https://doi.org/10.1042/BSR20260232)).
+2. **The other endogenously biotinylated carboxylases.** MCC and pyruvate
+   carboxylase should bind Strep-Tactin/streptavidin for the same reason PCC
+   does, but no cryo-EM report was found. MCC has the same α6β6 architecture
+   as PCC, so expect the two to be confused.
+3. **Large, abundant complexes** that turn up in lysate-derived samples:
+   - Soluble: 80S ribosome, 26S and 20S proteasomes, TRiC/CCT, VCP/p97,
+     ATP citrate lyase, fatty acid synthase, HSP60–HSP10.
+   - Membrane, for detergent preps: mitochondrial ATP synthase, complex I.
+
+   No specific contamination reports were found for these; they are
+   included because they are big and common.
+
+Not included yet:
+- **V-ATPase:** every human structure carries a non-native binder (SidK or
+  mEAK7).
+- **Na⁺/K⁺-ATPase:** no human cryo-EM structure.
+- **Vault:** about 67 nm long, too big for typical boxes.
 
 A separate `lab` catalog covers standard test and calibration samples that can
 be carried over on shared equipment (plunge-freezers, tweezers, cassettes):
@@ -354,7 +383,8 @@ and thickness well, and the head/core split less well.
 - [ ] Choose the mask radius automatically from each class average.
 - [x] Micelle/nanodisc model around TM regions (built-in membrane-plane detection).
 - [ ] Empty micelles and nanodiscs as a "background" variant (they are common false picks).
-- [ ] Catalogs for HEK293, Sf9/High Five and yeast expression hosts.
+- [x] Catalog for mammalian (HEK293) expression.
+- [ ] Catalogs for Sf9/High Five and yeast expression hosts.
 - [ ] Phase 2 (started, see below): per-particle classifier.
   1. [x] Prototype on simulated particles (`particle-benchmark`).
   2. [ ] Classify real extracted particles (cryoSPARC `.cs` + stack).

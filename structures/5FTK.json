@@ -1,0 +1,9 @@
+{
+ "id": "5FTK",
+ "title": "Cryo-EM structure of human p97 bound to ADP",
+ "method": "EM",
+ "resolution": 2.4,
+ "organisms": [
+  "HOMO SAPIENS"
+ ]
+}

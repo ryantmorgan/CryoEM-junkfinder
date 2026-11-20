@@ -1,0 +1,9 @@
+{
+ "id": "5XTD",
+ "title": "Cryo-EM structure of human respiratory complex I",
+ "method": "EM",
+ "resolution": 3.7,
+ "organisms": [
+  "Homo sapiens"
+ ]
+}

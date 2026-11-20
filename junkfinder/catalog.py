@@ -11,9 +11,13 @@ verify``. Set ``verify=True`` on new entries until they have been. An empty
 ``--structure KEY=PATH``. ``refs`` holds DOIs reporting the protein as a
 co-purifying contaminant.
 
-Proteins reported as IMAC contaminants but too small (<~100 kDa) to give
-useful 2D classes in cryo-EM are deliberately left out: SlyD, Fur, Crp, ArgE,
-YadF, GlgA, ribosomal S15, BCCP (doi:10.1016/j.bbagen.2006.03.027).
+Size threshold for useful 2D classes: soluble assemblies need roughly
+>=150 kDa; membrane proteins can be much smaller (~50-70 kDa protein), because
+the detergent micelle or nanodisc adds size and a distinctive shape.
+
+Soluble IMAC contaminants below the threshold are deliberately left out: SlyD,
+Fur, Crp, ArgE, YadF, GlgA, ribosomal S15 (doi:10.1016/j.bbagen.2006.03.027).
+BCCP is included as its larger complex with biotin carboxylase (bc_bccp).
 """
 
 from __future__ import annotations
@@ -178,6 +182,13 @@ ECOLI: tuple[Contaminant, ...] = (
         "carboxylase it forms a larger complex (4HR7 assembly: 4 AccC + 4 AccB). E. coli ACC "
         "can also form helical tubes (9E4N).",
         refs=("10.1074/jbc.271.34.20690", "10.1016/j.str.2013.02.001"),
+    ),
+    Contaminant(
+        "lamB", "Maltoporin LamB (outer-membrane trimer)", "1MPM", 140, True,
+        "Binds starch/maltodextrins and is purified on starch-Sepharose, so a likely amylose-resin "
+        "(MBP-fusion) contaminant of membrane preps, especially from maltose-exposed cells. "
+        "Looks like OmpF/OmpC in 2D (all trimeric porins).",
+        refs=("10.1007/BF00265433", "10.1016/0006-291x(84)90684-3"),
     ),
 )
 

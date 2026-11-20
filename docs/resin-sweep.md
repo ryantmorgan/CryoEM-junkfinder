@@ -27,6 +27,7 @@ a new catalog.
 | ahpC | 4O5R | decamer, ~205 kDa | abundance |
 | rnap | 4YG2 | σ70 holoenzyme, ~450 kDa | abundance |
 | bc_bccp | 4HR7 | AccC/AccB complex, ~270 kDa | mechanistic (Strep-Tactin) |
+| lamB | 1MPM | maltoporin trimer, ~140 kDa (membrane) | mechanistic (amylose/starch) |
 
 GlnA is the one mechanistic find. Its N-terminal histidines chelate Ni²⁺, and
 nickel stacks the dodecamers into helical filaments (PDB 7W85; Huang et al.
@@ -34,9 +35,18 @@ nickel stacks the dodecamers into helical filaments (PDB 7W85; Huang et al.
 stacking. So a nickel prep can show isolated double rings, short stacks, or
 both, depending on the buffer.
 
+## Size threshold
+
+- **Soluble assemblies:** roughly 150 kDa or more for useful 2D classes.
+- **Membrane proteins:** the micelle or nanodisc adds size and a distinctive
+  shape, so ~50–70 kDa of protein is enough. On that basis the amylose-resin
+  candidate LamB (maltoporin, ~140 kDa trimer) is included. It binds starch,
+  and was purified on starch-Sepharose (doi:10.1007/BF00265433).
+- **OmpA:** still too small, with a ~19 kDa barrel.
+
 ## Rejected, so they need not be re-checked
 
-- **Under the ~150 kDa threshold for useful 2D classes:** SlyD, Crp, Fur, ArgE,
+- **Soluble, under the ~150 kDa threshold for useful 2D classes:** SlyD, Crp, Fur, ArgE,
   YadF, GlgA and ribosomal S15. BCCP alone is also
   under the threshold, but it is now in the catalog as the biotin
   carboxylase-BCCP complex, `bc_bccp` (see above).

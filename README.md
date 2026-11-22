@@ -468,7 +468,8 @@ say which particles are which, so use them as labels:
 
 ```bash
 junkfinder finetune --model pb_target/particle_classifier.pt --project-dir /path/to/CS-project \
-    --real cyo_bo3=J30/J30_particles_selected.cs target_rodA_pbp2=J31/J31_particles_selected.cs \
+    --real cyo_bo3=J60/particles_selected.cs,J60/J60_passthrough_particles_selected.cs \
+           target_rodA_pbp2=J64/particles_selected.cs,J64/J64_passthrough_particles_selected.cs \
     --target rodA_pbp2=8TJ3 --out finetuned
 ```
 
@@ -477,6 +478,8 @@ junkfinder finetune --model pb_target/particle_classifier.pt --project-dir /path
   keeps the contaminants with no real examples from being forgotten.
 - **Held-out set.** 10% of each real label is held out. Accuracy on it is
   reported before and after fine-tuning.
+- **Select 2D inputs.** The particle image locations are in the job's
+  passthrough file, so give both files, comma-separated.
 - **Using the result.** The output model works with `classify` and `scan`.
 
 ### Scanning whole micrographs

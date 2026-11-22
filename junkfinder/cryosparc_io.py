@@ -94,3 +94,34 @@ def exposures_from_cs(cs_paths: list[str | Path], project_dir: Path,
     if not out:
         raise SystemExit("No micrograph_blob/path in the given .cs files; include the passthrough file.")
     return sorted(out)
+
+
+def read_particles(paths) -> np.ndarray:
+    """Particles .cs with image locations, from one file or a job's file + passthrough.
+
+    cryoSPARC often keeps ``blob/*`` (where the particle images are) only in
+    the passthrough file, e.g. Select 2D's ``J60_passthrough_particles_selected.cs``.
+    The file holding ``blob/path`` is used, restricted to uids present in every
+    given file; ``alignments2D/class`` is copied in when another file has it.
+    """
+    if isinstance(paths, (str, Path)):
+        paths = [p for p in str(paths).split(",") if p]
+    arrays = [read_cs(p) for p in paths]
+    base = next((a for a in arrays if "blob/path" in a.dtype.names), None)
+    if base is None:
+        raise SystemExit(f"No blob/path in {', '.join(map(str, paths))}; add the job's passthrough .cs")
+    keep = np.ones(len(base), bool)
+    for a in arrays:
+        if a is not base:
+            keep &= np.isin(base["uid"], a["uid"])
+    base = base[keep]
+    if "alignments2D/class" not in base.dtype.names:
+        src = next((a for a in arrays if "alignments2D/class" in a.dtype.names), None)
+        if src is not None:
+            order = {int(u): int(c) for u, c in zip(src["uid"], src["alignments2D/class"])}
+            new = np.zeros(len(base), dtype=base.dtype.descr + [("alignments2D/class", "<u4")])
+            for n in base.dtype.names:
+                new[n] = base[n]
+            new["alignments2D/class"] = [order.get(int(u), 0) for u in base["uid"]]
+            base = new
+    return base

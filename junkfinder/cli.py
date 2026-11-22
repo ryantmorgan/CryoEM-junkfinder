@@ -224,11 +224,11 @@ def cmd_classify(args: argparse.Namespace) -> None:
     import torch
 
     from .apply import classify_cs, load_model, summarise_predictions, write_particle_table
-    from .cryosparc_io import read_cs
+    from .cryosparc_io import read_particles
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     model, ckpt = load_model(args.model, device)
-    cs = read_cs(args.particles)
+    cs = read_particles(args.particles)
     if args.max_particles and len(cs) > args.max_particles:
         cs = cs[np.random.default_rng(0).choice(len(cs), args.max_particles, replace=False)]
     apix_in = args.apix or float(cs["blob/psize_A"][0])
@@ -315,7 +315,7 @@ def cmd_finetune(args: argparse.Namespace) -> None:
 
     from .apply import load_model
     from .catalog import CATALOGS
-    from .cryosparc_io import read_cs
+    from .cryosparc_io import read_particles
     from .finetune import confusion_report, finetune, load_real, real_confusion
     from .particles import Microscope, ParticleSimulator
 
@@ -328,7 +328,8 @@ def cmd_finetune(args: argparse.Namespace) -> None:
         label, sep, path = item.partition("=")
         if not sep or label not in keys:
             raise SystemExit(f"--real expects LABEL=particles.cs with LABEL one of: {', '.join(keys)}")
-        x = load_real(read_cs(path), Path(args.project_dir), ckpt, args.max_per_label, args.invert == "yes")
+        x = load_real(read_particles(path), Path(args.project_dir), ckpt, args.max_per_label,
+                      args.invert == "yes")
         print(f"  {label}: {len(x)} real particles from {path}", flush=True)
         xs.append(x)
         ys.append(np.full(len(x), keys.index(label)))
@@ -485,7 +486,8 @@ def main(argv: list[str] | None = None) -> None:
 
     s = sub.add_parser("classify", help="Classify real cryoSPARC particles with a trained "
                        "particle_classifier.pt (needs torch)")
-    s.add_argument("particles", help="Particles .cs (Extract / 2D Classification / Select 2D job)")
+    s.add_argument("particles", help="Particles .cs (Extract / 2D Classification / Select 2D job); "
+                   "add the passthrough file comma-separated if blob/path lives there")
     s.add_argument("--model", required=True, help="particle_classifier.pt from particle-benchmark")
     s.add_argument("--project-dir", required=True,
                    help="cryoSPARC project directory (blob/path entries are relative to it)")
@@ -501,8 +503,9 @@ def main(argv: list[str] | None = None) -> None:
                        "by your 2D classes (needs torch)")
     s.add_argument("--model", required=True, help="particle_classifier.pt to start from")
     s.add_argument("--real", nargs="+", required=True, metavar="LABEL=CS",
-                   help="Real particles per label, e.g. cyo_bo3=J20_particles.cs "
-                        "target_rodA_pbp2=J21_particles.cs (Select 2D / Extract outputs)")
+                   help="Real particles per label; for Select 2D give the job's file and its "
+                        "passthrough, comma-separated: cyo_bo3=J60/particles_selected.cs,"
+                        "J60/J60_passthrough_particles_selected.cs")
     s.add_argument("--project-dir", required=True, help="cryoSPARC project folder")
     s.add_argument("--target", action="append", metavar="NAME=PDBID|PATH",
                    help="Same --target as used for training (needed to simulate it)")

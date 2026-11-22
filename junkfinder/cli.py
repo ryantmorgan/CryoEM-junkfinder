@@ -251,6 +251,129 @@ def cmd_classify(args: argparse.Namespace) -> None:
     print("\n" + text + f"\n\nWrote {out}/particles.tsv, summary.txt and probabilities.npy")
 
 
+ENV_KINDS = {"none": [], "micelle": ["micelle"], "nanodisc": ["nanodisc"], "sma": ["sma"],
+             "both": ["micelle", "nanodisc"], "all": ["micelle", "nanodisc", "sma"]}
+
+
+def parse_targets(items, target_env: str):
+    """--target NAME=PDBID|PATH -> (Contaminant list, local paths, environment per key)."""
+    cats, local_paths, env_of = [], {}, {}
+    for item in items or []:
+        name, sep, src = item.partition("=")
+        if not sep or not name or not src:
+            raise SystemExit(f"--target expects NAME=PDBID or NAME=PATH, got '{item}'")
+        key = f"target_{name}"
+        if Path(src).exists():
+            local_paths[key] = Path(src)
+            cats.append(Contaminant(key, f"Target {name}", "", 0, target_env != "none"))
+        else:
+            cats.append(Contaminant(key, f"Target {name}", src.upper(), 0, target_env != "none"))
+        env_of[key] = ENV_KINDS[target_env]
+    return cats, local_paths, env_of
+
+
+def render_views(catalog, local_paths, env_of, default_kinds, n_train, n_test, box, apix,
+                 env_variants=24, cache=None, seed_train=7, seed_test=123):
+    """Thickness views per structure; membrane proteins get several random environments."""
+    import numpy as np
+
+    from .membrane import MembraneModel
+    from .particles import build_views
+    from .structures import load_atoms
+
+    rng_train, rng_test = np.random.default_rng(seed_train), np.random.default_rng(seed_test)
+    train_views, test_views = {}, {}
+    for c in catalog:
+        path = local_paths.get(c.key)
+        if path is None:
+            path = cached_structure(c.pdb_id, c.assembly, Path(cache)) if cache else None
+            path = path or fetch_structure(c.pdb_id, c.assembly, **({"cache_dir": Path(cache)} if cache else {}))
+        kinds = env_of.get(c.key, default_kinds)
+        if c.membrane and kinds:
+            # Several random environments per structure; test ones are never seen in training.
+            model = MembraneModel(path)
+            for views, n, rng in ((train_views, n_train, rng_train), (test_views, n_test, rng_test)):
+                if n <= 0:
+                    continue
+                k = max(1, min(env_variants, n))
+                parts = [build_views({c.key: model.variant(kinds[i % len(kinds)], rng)},
+                                     n // k + (i < n % k), box, apix, rng=rng)[c.key]
+                         for i in range(k)]
+                views[c.key] = np.concatenate(parts)
+        else:
+            atoms = load_atoms(path)
+            train_views[c.key] = build_views({c.key: atoms}, n_train, box, apix)[c.key]
+            if n_test > 0:
+                test_views[c.key] = build_views({c.key: atoms}, n_test, box, apix, rng=rng_test)[c.key]
+    return train_views, test_views
+
+
+def cmd_finetune(args: argparse.Namespace) -> None:
+    """Fine-tune a trained classifier on real particles labelled by your 2D classes."""
+    import numpy as np
+    import torch
+
+    from .apply import load_model
+    from .catalog import CATALOGS
+    from .cryosparc_io import read_cs
+    from .finetune import confusion_report, finetune, load_real, real_confusion
+    from .particles import Microscope, ParticleSimulator
+
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    model, ckpt = load_model(args.model, device)
+    keys = ckpt["keys"]
+    # Real particles per label.
+    xs, ys = [], []
+    for item in args.real:
+        label, sep, path = item.partition("=")
+        if not sep or label not in keys:
+            raise SystemExit(f"--real expects LABEL=particles.cs with LABEL one of: {', '.join(keys)}")
+        x = load_real(read_cs(path), Path(args.project_dir), ckpt, args.max_per_label, args.invert == "yes")
+        print(f"  {label}: {len(x)} real particles from {path}", flush=True)
+        xs.append(x)
+        ys.append(np.full(len(x), keys.index(label)))
+    x_all, y_all = np.concatenate(xs), np.concatenate(ys)
+    rng = np.random.default_rng(0)
+    val = np.zeros(len(x_all), bool)
+    for c in np.unique(y_all):
+        idx = np.nonzero(y_all == c)[0]
+        val[rng.choice(idx, max(1, int(len(idx) * args.val_frac)), replace=False)] = True
+    labels = sorted(set(y_all.tolist()))
+    before = real_confusion(model, x_all[val], y_all[val], len(keys), device)
+    print("\nHeld-out real particles BEFORE fine-tuning:\n" + confusion_report(before, keys, labels), flush=True)
+
+    # Simulated replay for every class the model knows (same keys, same order).
+    known = {}
+    for cat in CATALOGS.values():
+        for c in cat:
+            known.setdefault(c.key, c)
+    tcats, local_paths, env_of = parse_targets(args.target, args.target_env)
+    for c in tcats:
+        known[c.key] = c
+    missing = [k for k in keys if k != "background" and k not in known]
+    if missing:
+        raise SystemExit(f"No structure for {', '.join(missing)}; pass --target NAME=PDBID for targets.")
+    catalog = [known[k] for k in keys if k != "background"]
+    print(f"\nRendering {args.sim_views} simulated views per class for replay...", flush=True)
+    views, _ = render_views(catalog, local_paths, env_of, ENV_KINDS[ckpt.get("membrane_env", "micelle")],
+                            args.sim_views, 0, ckpt["box"], ckpt["apix"], args.env_variants, args.cache)
+    lo, hi = ckpt.get("dose", [10.0, 40.0])
+    sim = ParticleSimulator(views, Microscope(apix=ckpt["apix"], dose=(lo, hi)), device=device)
+    assert sim.keys == keys, "simulated class order must match the model"
+    print(f"Fine-tuning ({args.steps} steps of {args.batch}, {args.frac_real:.0%} real)...", flush=True)
+    model = finetune(model, sim, x_all[~val], y_all[~val], args.steps, args.batch, args.frac_real, args.lr)
+    after = real_confusion(model, x_all[val], y_all[val], len(keys), device)
+    text = ("Held-out real particles BEFORE fine-tuning:\n" + confusion_report(before, keys, labels) +
+            "\n\nAFTER fine-tuning:\n" + confusion_report(after, keys, labels))
+    print("\n" + text)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    ckpt = dict(ckpt, state_dict=model.state_dict(), finetuned_on=args.real)
+    torch.save(ckpt, out / "particle_classifier.pt")
+    (out / "report.txt").write_text(text + "\n")
+    print(f"\nWrote {out}/particle_classifier.pt and report.txt")
+
+
 def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     """Train a per-particle classifier on simulated particles and report accuracy."""
     import dataclasses
@@ -260,9 +383,7 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     import torch
 
     from .classifier import evaluate, report, train
-    from .membrane import MembraneModel
-    from .particles import Microscope, ParticleSimulator, build_views
-    from .structures import load_atoms
+    from .particles import Microscope, ParticleSimulator
 
     torch.set_num_threads(args.threads or torch.get_num_threads())
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -274,49 +395,15 @@ def cmd_particle_benchmark(args: argparse.Namespace) -> None:
     if args.only:
         keep = {k.strip() for k in args.only.split(",")}
         catalog = [c for c in catalog if c.key in keep]
-    env_kinds = {"none": [], "micelle": ["micelle"], "nanodisc": ["nanodisc"],
-                 "sma": ["sma"], "both": ["micelle", "nanodisc"],
-                 "all": ["micelle", "nanodisc", "sma"]}
-    kinds = env_kinds[args.membrane_env]
+    env_kinds = ENV_KINDS
     # Your own protein(s) as extra classes: NAME=PDBID or NAME=path/to/model.
-    local_paths, env_of = {}, {}
-    for item in args.target or []:
-        name, sep, src = item.partition("=")
-        if not sep or not name or not src:
-            raise SystemExit(f"--target expects NAME=PDBID or NAME=PATH, got '{item}'")
-        key = f"target_{name}"
-        if Path(src).exists():
-            local_paths[key] = Path(src)
-            catalog.append(Contaminant(key, f"Target {name}", "", 0, args.target_env != "none"))
-        else:
-            catalog.append(Contaminant(key, f"Target {name}", src.upper(), 0, args.target_env != "none"))
-        env_of[key] = env_kinds[args.target_env]
-    rng_train, rng_test = np.random.default_rng(7), np.random.default_rng(123)
-    train_views, test_views = {}, {}
+    tcats, local_paths, env_of = parse_targets(args.target, args.target_env)
+    catalog += tcats
     print(f"Rendering {args.train_views} training views and {args.test_views} test views "
           f"for {len(catalog)} structures (membrane environment: {args.membrane_env})...", flush=True)
-    for c in catalog:
-        path = local_paths.get(c.key)
-        if path is None:
-            path = cached_structure(c.pdb_id, c.assembly, Path(args.cache)) if args.cache else None
-            path = path or fetch_structure(c.pdb_id, c.assembly,
-                                           **({"cache_dir": Path(args.cache)} if args.cache else {}))
-        kinds = env_of.get(c.key, env_kinds[args.membrane_env])
-        if c.membrane and kinds:
-            # Several random environments per structure; test ones are never seen in training.
-            model = MembraneModel(path)
-            for views, n, rng in ((train_views, args.train_views, rng_train),
-                                  (test_views, args.test_views, rng_test)):
-                k = max(1, min(args.env_variants, n))
-                parts = [build_views({c.key: model.variant(kinds[i % len(kinds)], rng)},
-                                     n // k + (i < n % k), args.box, args.apix, rng=rng)[c.key]
-                         for i in range(k)]
-                views[c.key] = np.concatenate(parts)
-        else:
-            atoms = load_atoms(path)
-            train_views[c.key] = build_views({c.key: atoms}, args.train_views, args.box, args.apix)[c.key]
-            test_views[c.key] = build_views({c.key: atoms}, args.test_views, args.box, args.apix,
-                                            rng=rng_test)[c.key]
+    train_views, test_views = render_views(
+        catalog, local_paths, env_of, env_kinds[args.membrane_env], args.train_views, args.test_views,
+        args.box, args.apix, args.env_variants, args.cache)
 
     scope = Microscope(apix=args.apix, dose=(args.dose_min, args.dose_max))
     sim = ParticleSimulator(train_views, scope, device=device)
@@ -409,6 +496,30 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")
     s.add_argument("--out", default="classify_out")
     s.set_defaults(func=cmd_classify)
+
+    s = sub.add_parser("finetune", help="Fine-tune a trained classifier on real particles labelled "
+                       "by your 2D classes (needs torch)")
+    s.add_argument("--model", required=True, help="particle_classifier.pt to start from")
+    s.add_argument("--real", nargs="+", required=True, metavar="LABEL=CS",
+                   help="Real particles per label, e.g. cyo_bo3=J20_particles.cs "
+                        "target_rodA_pbp2=J21_particles.cs (Select 2D / Extract outputs)")
+    s.add_argument("--project-dir", required=True, help="cryoSPARC project folder")
+    s.add_argument("--target", action="append", metavar="NAME=PDBID|PATH",
+                   help="Same --target as used for training (needed to simulate it)")
+    s.add_argument("--target-env", choices=list(ENV_KINDS), default="micelle")
+    s.add_argument("--cache", default="structures")
+    s.add_argument("--max-per-label", type=int, default=20000)
+    s.add_argument("--val-frac", type=float, default=0.1, help="Held-out real particles per label")
+    s.add_argument("--steps", type=int, default=3000)
+    s.add_argument("--batch", type=int, default=128)
+    s.add_argument("--frac-real", type=float, default=0.5, help="Fraction of each batch from real data")
+    s.add_argument("--lr", type=float, default=3e-4)
+    s.add_argument("--sim-views", type=int, default=500, help="Simulated views per class for replay")
+    s.add_argument("--env-variants", type=int, default=12)
+    s.add_argument("--invert", choices=["no", "yes"], default="no")
+    s.add_argument("--device")
+    s.add_argument("--out", default="finetuned")
+    s.set_defaults(func=cmd_finetune)
 
     s = sub.add_parser("scan", help="Scan whole micrographs with a trained particle_classifier.pt "
                        "(sliding window, Topaz-style; needs torch)")

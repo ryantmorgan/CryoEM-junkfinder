@@ -459,6 +459,26 @@ junkfinder classify /path/to/P274/J123/J123_020_particles.cs --project-dir /path
   between simulated and real particles until the model is tuned on labelled
   real examples (the self-training step).
 
+### Fine-tuning on your own labelled particles
+
+A model trained on simulations finds real particles well, but can mislabel
+them. In a real bo3-contaminated dataset, true bo3 particles came out as
+ATP synthase or GlmS, depending on the micrograph. Your 2D classes already
+say which particles are which, so use them as labels:
+
+```bash
+junkfinder finetune --model pb_target/particle_classifier.pt --project-dir /path/to/CS-project \
+    --real cyo_bo3=J30/J30_particles_selected.cs target_rodA_pbp2=J31/J31_particles_selected.cs \
+    --target rodA_pbp2=8TJ3 --out finetuned
+```
+
+- **Training batches.** Each batch is half real particles (rotated and
+  flipped) and half simulated particles of every class. The simulated half
+  keeps the contaminants with no real examples from being forgotten.
+- **Held-out set.** 10% of each real label is held out. Accuracy on it is
+  reported before and after fine-tuning.
+- **Using the result.** The output model works with `classify` and `scan`.
+
 ### Scanning whole micrographs
 
 Topaz-style. The classifier slides across each micrograph, so no particle

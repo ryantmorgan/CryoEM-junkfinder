@@ -307,6 +307,30 @@ noise. Chance level is 4% (24 structures plus background).
 | 20 | 59% / 67% / 75% | 62% / 71% / 78% | 98% / 98.6% / 98.5% | 5% / 7% / 6% |
 | 40 | 72% / 81% / 88% | 75% / 85% / 91% | 99.8% / 99.9% / 99.9% | 7% / 7% / 5% |
 
+**With micelles, nanodiscs and SMA discs** (3 Å/px, 40000 steps, 3000 views,
+`--membrane-env all`). Each membrane protein got 24 random environments for
+training and different ones for testing.
+- **Run D:** the 24 catalog structures.
+- **Run E:** the same plus your own target, RodA–PBP2 (8TJ3, in a DDM-like
+  micelle), as an extra class.
+
+| Dose (e/Å²) | All classes (C bare / D env / E env + target) | Contaminant called "not background" | Empty picks called a contaminant (C / D / E) |
+|---|---|---|---|
+| 10 | 50% / 51% / 51% | 90% / 92% / 92% | 6% / 3% / 5% |
+| 20 | 75% / 75% / 75% | 98.5% / 99.1% / 99.2% | 6% / 4% / 5% |
+| 40 | 88% / 87% / 87% | 99.9% / 100% / 100% | 5% / 3% / 5% |
+
+- **Overall:** accuracy is unchanged, and empty picks are flagged less often.
+- **The four small membrane proteins:** OmpF, OmpC, cyt bd and bo3 drop a
+  little: at 20 e/Å² 29–38% (bo3 33%), against 31–51% bare. Each of them now
+  appears in three kinds of environment of varying size. That is harder, but
+  closer to real data.
+- **Large membrane complexes:** unaffected. At 20 e/Å², AcrB is 81–87%, SDH
+  72–77% and ATP synthase 94%.
+- **Target RodA–PBP2:** 26% / 60% / 84% correct at 10 / 20 / 40 e/Å². When
+  wrong, it is mostly called cyt bd (6–18%), another small membrane protein
+  in a micelle. It is mistaken for bo3 in only 2–4% of particles.
+
 Run C changes two things at once, the pixel size and twice as many steps, so
 the gain from B to C is not purely from the finer pixels.
 

@@ -121,6 +121,53 @@ ORG_HELP = (f"Catalog(s), comma-separated. Available: {', '.join(sorted(CATALOGS
             f"(default {DEFAULT_CATALOGS})")
 
 
+def cmd_scan(args: argparse.Namespace) -> None:
+    """Sliding-window scan of whole micrographs with a trained classifier."""
+    import glob
+    from collections import Counter
+
+    import torch
+
+    from .apply import load_model
+    from .scan import save_overlay, scan_micrograph
+
+    paths = sorted({p for pat in args.micrographs for p in (glob.glob(pat) or [pat])})
+    if args.max_micrographs:
+        paths = paths[:args.max_micrographs]
+    if not paths:
+        raise SystemExit("No micrographs found.")
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    model, ckpt = load_model(args.model, device)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    keys = ckpt["keys"]
+    total, rows = Counter(), []
+    with open(out / "picks.tsv", "w") as f:
+        f.write("micrograph\tx\ty\tlabel\tprob\tscore\n")
+        for i, path in enumerate(paths):
+            picks, _, x, geom = scan_micrograph(path, model, ckpt, args.stride, args.threshold,
+                                                args.min_dist, args.apix, args.invert == "yes", device)
+            counts = Counter(p.label for p in picks)
+            total.update(counts)
+            rows.append((Path(path).name, len(picks), counts))
+            for p in picks:
+                f.write(f"{path}\t{p.x:.1f}\t{p.y:.1f}\t{p.label}\t{p.prob:.3f}\t{p.score:.3f}\n")
+            if i < args.overlays:
+                save_overlay(out / f"{Path(path).stem}_picks.png", x, picks, ckpt, geom)
+            print(f"  [{i + 1}/{len(paths)}] {Path(path).name}: {len(picks)} picks  " +
+                  ", ".join(f"{k} {v}" for k, v in counts.most_common(4)), flush=True)
+    n = sum(total.values())
+    lines = [f"{len(paths)} micrographs, {n} picks (threshold {args.threshold}, stride {args.stride} Å)",
+             "", "Picks by label:"]
+    lines += [f"  {k:<22s} {v:7d}  {v / max(n, 1):6.1%}" for k, v in total.most_common()]
+    lines += ["", "Micrographs where each label is the most common pick:"]
+    tops = Counter(c.most_common(1)[0][0] for _, _, c in rows if c)
+    lines += [f"  {k:<22s} {v:5d}" for k, v in tops.most_common()]
+    text = "\n".join(lines)
+    (out / "summary.txt").write_text(text + "\n")
+    print("\n" + text + f"\n\nWrote {out}/picks.tsv, summary.txt and {min(args.overlays, len(paths))} overlays")
+
+
 def cmd_fit_env(args: argparse.Namespace) -> None:
     """Fit micelle/nanodisc/SMA parameters to class averages of one membrane protein."""
     import dataclasses
@@ -346,6 +393,22 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")
     s.add_argument("--out", default="classify_out")
     s.set_defaults(func=cmd_classify)
+
+    s = sub.add_parser("scan", help="Scan whole micrographs with a trained particle_classifier.pt "
+                       "(sliding window, Topaz-style; needs torch)")
+    s.add_argument("micrographs", nargs="+", help="Micrograph .mrc files or glob patterns (quote globs)")
+    s.add_argument("--model", required=True, help="particle_classifier.pt from particle-benchmark")
+    s.add_argument("--apix", type=float, help="Micrograph pixel size (Å) if the header lacks it")
+    s.add_argument("--stride", type=float, default=24.0, help="Window spacing (Å)")
+    s.add_argument("--threshold", type=float, default=0.7, help="Min 1 - P(background) for a pick")
+    s.add_argument("--min-dist", type=float, help="Min distance between picks (Å); default box/4")
+    s.add_argument("--invert", choices=["no", "yes"], default="no",
+                   help="'yes' if protein is white in the micrographs")
+    s.add_argument("--max-micrographs", type=int, help="Only scan the first N (sorted)")
+    s.add_argument("--overlays", type=int, default=5, help="Save pick overlays for the first N")
+    s.add_argument("--device", help="cpu, cuda or cuda:N (default: cuda if available)")
+    s.add_argument("--out", default="scan_out")
+    s.set_defaults(func=cmd_scan)
 
     s = sub.add_parser("fit-env", help="Fit a micelle/nanodisc/SMA model to class averages of a "
                        "membrane protein (e.g. bo3 in DDM)")

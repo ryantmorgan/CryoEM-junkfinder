@@ -459,6 +459,34 @@ junkfinder classify /path/to/P274/J123/J123_020_particles.cs --project-dir /path
   between simulated and real particles until the model is tuned on labelled
   real examples (the self-training step).
 
+### Scanning whole micrographs
+
+Topaz-style. The classifier slides across each micrograph, so no particle
+picking is needed:
+
+```bash
+junkfinder scan "/path/to/P274/J45/motioncorrected/*_doseweighted.mrc" \
+    --model pb_target/particle_classifier.pt --out scan_J45 --max-micrographs 50
+```
+
+- **Preparation.** Each micrograph is resampled to the model's pixel size.
+  Gradients slower than ~600 Å are removed, and the result is normalised to
+  unit noise.
+- **Windows.** Model-sized windows are classified every `--stride` Å
+  (default 24).
+- **Picks.** Peaks of "not background" above `--threshold` (default 0.7) are
+  labelled with their most likely class.
+- **Outputs.**
+  - `picks.tsv`: micrograph, x, y in original pixels, label and probability.
+  - `summary.txt`: counts per label, and how many micrographs each label
+    dominates.
+  - Overlays of the first `--overlays` micrographs.
+- **Test.** On a synthetic micrograph with 16 toy particles, it finds all
+  16 with the right labels and no extra picks.
+- **Caveat.** Real micrographs contain things the model never saw: carbon
+  edges, ice contamination, aggregates, empty micelles. Expect false picks
+  there.
+
 For class-average screening, `build-library --membrane-env micelle` adds a
 typical micelle to the membrane contaminants. `--target-env micelle` does the
 same for your own `--target` model if it is a membrane protein, so that

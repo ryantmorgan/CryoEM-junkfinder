@@ -53,3 +53,14 @@ def test_scan_finds_and_labels_toy_particles(tmp_path):
         hits += any(p.label == key for p in near)
     assert hits / len(truth) >= 0.6, (hits, len(truth), len(picks))
     assert len(picks) <= 1.5 * len(truth)  # no picks between particles
+
+
+def test_saturated_plateau_gives_one_centred_pick():
+    from junkfinder.scan import find_picks
+
+    p = np.zeros((3, 40, 40))
+    p[2] = 1.0
+    p[2, 10:15, 10:15], p[0, 10:15, 10:15] = 0.0, 1.0  # confident 5x5 patch of class 'a'
+    p[2, 30, 30], p[1, 30, 30] = 0.1, 0.9  # one window of class 'b'
+    picks = find_picks(p, ["a", "b", "background"], 0.7, 4)
+    assert [(r, c, lab) for r, c, lab, _, _ in picks] == [(12, 12, 0), (30, 30, 1)]

@@ -80,17 +80,34 @@ def probability_maps(x: np.ndarray, model, box: int, stride: int, batch: int = 2
 
 
 def find_picks(probs: np.ndarray, keys: list[str], threshold: float, min_dist_px: int):
-    """Local maxima of 1 - P(background): list of (row, col, label_idx, p_label, score)."""
+    """Greedy non-maximum suppression on 1 - P(background).
+
+    Returns a list of (row, col, label_idx, p_label, score) in grid units.
+    Confident windows saturate at exactly 1.0 over a whole patch of the grid. So
+    candidates are local maxima of a lightly smoothed score, which turns such a
+    plateau into a single peak at its centre. They are then accepted greedily
+    by score, and any candidate closer than ``min_dist_px`` to an accepted pick
+    is dropped.
+    """
     bg = keys.index("background")
     score = 1.0 - probs[bg]
-    size = max(1, 2 * min_dist_px + 1)
-    peaks = (score == ndimage.maximum_filter(score, size=size, mode="constant")) & (score >= threshold)
+    rank = ndimage.gaussian_filter(score.astype(np.float64), 1.0, mode="constant")
+    size = max(3, 2 * min_dist_px + 1)
+    peaks = (rank >= ndimage.maximum_filter(rank, size=size, mode="constant") - 1e-12) & (score >= threshold)
+    rows, cols = np.nonzero(peaks)
+    order = np.argsort(-rank[rows, cols], kind="stable")
     fg = probs.copy()
     fg[bg] = -1
+    kept: list[tuple[int, int]] = []
     out = []
-    for r, c in zip(*np.nonzero(peaks)):
+    d2 = max(1, min_dist_px) ** 2
+    for k in order:
+        r, c = int(rows[k]), int(cols[k])
+        if any((r - a) ** 2 + (c - b) ** 2 < d2 for a, b in kept):
+            continue
+        kept.append((r, c))
         lab = int(fg[:, r, c].argmax())
-        out.append((int(r), int(c), lab, float(probs[lab, r, c]), float(score[r, c])))
+        out.append((r, c, lab, float(probs[lab, r, c]), float(score[r, c])))
     return out
 
 

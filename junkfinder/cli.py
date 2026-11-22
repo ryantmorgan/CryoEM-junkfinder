@@ -133,15 +133,17 @@ def cmd_scan(args: argparse.Namespace) -> None:
 
     paths = sorted({p for pat in args.micrographs for p in (glob.glob(pat) or [pat])})
     apix_of: dict[str, float] = {}
+    defocus_of: dict[str, float | None] = {}
     if args.exposures:
         from .cryosparc_io import exposures_from_cs
 
         if not args.project_dir:
             raise SystemExit("--exposures needs --project-dir (the cryoSPARC project folder)")
-        exp = exposures_from_cs(args.exposures, Path(args.project_dir))
+        exp = exposures_from_cs(args.exposures, Path(args.project_dir), with_defocus=True)
         print(f"{len(exp)} accepted exposures from {', '.join(args.exposures)}")
-        paths += [str(p) for p, _ in exp]
-        apix_of = {str(p): a for p, a in exp}
+        paths += [str(p) for p, _, _ in exp]
+        apix_of = {str(p): a for p, a, _ in exp}
+        defocus_of = {str(p): df for p, _, df in exp}
     if args.max_micrographs:
         paths = paths[:args.max_micrographs]
     if not paths:
@@ -165,7 +167,10 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 f.write(f"{path}\t{p.x:.1f}\t{p.y:.1f}\t{p.label}\t{p.prob:.3f}\t{p.score:.3f}\n")
             if i < args.overlays:
                 save_overlay(out / f"{Path(path).stem}_picks.png", x, picks, ckpt, geom)
-            print(f"  [{i + 1}/{len(paths)}] {Path(path).name}: {len(picks)} picks  " +
+            df = defocus_of.get(str(path))
+            lo, hi = ckpt.get("defocus_um", (0.8, 2.5))
+            dtxt = "" if df is None else f" (defocus {df:.2f} µm{'' if lo <= df <= hi else ', OUTSIDE training range'})"
+            print(f"  [{i + 1}/{len(paths)}] {Path(path).name}{dtxt}: {len(picks)} picks  " +
                   ", ".join(f"{k} {v}" for k, v in counts.most_common(4)), flush=True)
     n = sum(total.values())
     lines = [f"{len(paths)} micrographs, {n} picks (threshold {args.threshold}, stride {args.stride} Å)",

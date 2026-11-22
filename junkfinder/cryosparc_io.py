@@ -63,8 +63,9 @@ def load_class_averages(
     return imgs, apix, counts
 
 
-def exposures_from_cs(cs_paths: list[str | Path], project_dir: Path) -> list[tuple[Path, float]]:
-    """(micrograph path, pixel size) per exposure from cryoSPARC exposures .cs files.
+def exposures_from_cs(cs_paths: list[str | Path], project_dir: Path,
+                      with_defocus: bool = False) -> list[tuple]:
+    """(micrograph path, pixel size[, mean defocus µm]) per exposure from cryoSPARC .cs files.
 
     A job's own .cs and its passthrough .cs are merged by uid. The
     ``micrograph_blob`` (the dose-weighted, motion-corrected image) usually
@@ -76,7 +77,7 @@ def exposures_from_cs(cs_paths: list[str | Path], project_dir: Path) -> list[tup
         names = cs.dtype.names
         for row in cs:
             d = fields.setdefault(int(row["uid"]), {})
-            for f in ("micrograph_blob/path", "micrograph_blob/psize_A"):
+            for f in ("micrograph_blob/path", "micrograph_blob/psize_A", "ctf/df1_A", "ctf/df2_A"):
                 if f in names:
                     d[f] = row[f]
     out = []
@@ -85,7 +86,11 @@ def exposures_from_cs(cs_paths: list[str | Path], project_dir: Path) -> list[tup
             continue
         rel = d["micrograph_blob/path"]
         rel = (rel.decode() if isinstance(rel, bytes) else str(rel)).lstrip(">")
-        out.append((project_dir / rel, float(d.get("micrograph_blob/psize_A", 0)) or None))
+        item = (project_dir / rel, float(d.get("micrograph_blob/psize_A", 0)) or None)
+        if with_defocus:
+            df = ((float(d["ctf/df1_A"]) + float(d["ctf/df2_A"])) / 2e4) if "ctf/df1_A" in d else None
+            item = item + (df,)
+        out.append(item)
     if not out:
         raise SystemExit("No micrograph_blob/path in the given .cs files; include the passthrough file.")
     return sorted(out)

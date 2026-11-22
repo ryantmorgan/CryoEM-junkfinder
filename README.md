@@ -469,6 +469,14 @@ junkfinder scan "/path/to/P274/J45/motioncorrected/*_doseweighted.mrc" \
     --model pb_target/particle_classifier.pt --out scan_J45 --max-micrographs 50
 ```
 
+Or scan the accepted exposures of a cryoSPARC job (e.g. Curate Exposures)
+directly. Paths and pixel sizes come from the job's `.cs` files:
+
+```bash
+junkfinder scan --exposures J5/J5_exposures_accepted.cs J5/J5_passthrough_exposures_accepted.cs \
+    --project-dir /path/to/CS-project --model pb_target/particle_classifier.pt --out scan_J5
+```
+
 - **Preparation.** Each micrograph is resampled to the model's pixel size.
   Gradients slower than ~600 Å are removed, and the result is normalised to
   unit noise.

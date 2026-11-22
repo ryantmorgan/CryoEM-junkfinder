@@ -132,6 +132,16 @@ def cmd_scan(args: argparse.Namespace) -> None:
     from .scan import save_overlay, scan_micrograph
 
     paths = sorted({p for pat in args.micrographs for p in (glob.glob(pat) or [pat])})
+    apix_of: dict[str, float] = {}
+    if args.exposures:
+        from .cryosparc_io import exposures_from_cs
+
+        if not args.project_dir:
+            raise SystemExit("--exposures needs --project-dir (the cryoSPARC project folder)")
+        exp = exposures_from_cs(args.exposures, Path(args.project_dir))
+        print(f"{len(exp)} accepted exposures from {', '.join(args.exposures)}")
+        paths += [str(p) for p, _ in exp]
+        apix_of = {str(p): a for p, a in exp}
     if args.max_micrographs:
         paths = paths[:args.max_micrographs]
     if not paths:
@@ -146,7 +156,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
         f.write("micrograph\tx\ty\tlabel\tprob\tscore\n")
         for i, path in enumerate(paths):
             picks, _, x, geom = scan_micrograph(path, model, ckpt, args.stride, args.threshold,
-                                                args.min_dist, args.apix, args.invert == "yes", device)
+                                                args.min_dist, args.apix or apix_of.get(str(path)),
+                                                args.invert == "yes", device)
             counts = Counter(p.label for p in picks)
             total.update(counts)
             rows.append((Path(path).name, len(picks), counts))
@@ -396,7 +407,11 @@ def main(argv: list[str] | None = None) -> None:
 
     s = sub.add_parser("scan", help="Scan whole micrographs with a trained particle_classifier.pt "
                        "(sliding window, Topaz-style; needs torch)")
-    s.add_argument("micrographs", nargs="+", help="Micrograph .mrc files or glob patterns (quote globs)")
+    s.add_argument("micrographs", nargs="*", help="Micrograph .mrc files or glob patterns (quote globs)")
+    s.add_argument("--exposures", nargs="+", metavar="CS",
+                   help="cryoSPARC exposures .cs file(s), e.g. a Curate Exposures job's "
+                        "J5_exposures_accepted.cs and J5_passthrough_exposures_accepted.cs")
+    s.add_argument("--project-dir", help="cryoSPARC project folder (paths in --exposures are relative to it)")
     s.add_argument("--model", required=True, help="particle_classifier.pt from particle-benchmark")
     s.add_argument("--apix", type=float, help="Micrograph pixel size (Å) if the header lacks it")
     s.add_argument("--stride", type=float, default=24.0, help="Window spacing (Å)")

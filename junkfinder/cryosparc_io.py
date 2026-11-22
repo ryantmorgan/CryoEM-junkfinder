@@ -61,3 +61,31 @@ def load_class_averages(
         raise SystemExit("Pixel size unknown: pass --apix or the class averages .cs file.")
     counts = class_counts(read_cs(particles_path), len(imgs)) if particles_path else None
     return imgs, apix, counts
+
+
+def exposures_from_cs(cs_paths: list[str | Path], project_dir: Path) -> list[tuple[Path, float]]:
+    """(micrograph path, pixel size) per exposure from cryoSPARC exposures .cs files.
+
+    A job's own .cs and its passthrough .cs are merged by uid. The
+    ``micrograph_blob`` (the dose-weighted, motion-corrected image) usually
+    sits in the passthrough file.
+    """
+    fields: dict[int, dict] = {}
+    for p in cs_paths:
+        cs = read_cs(p)
+        names = cs.dtype.names
+        for row in cs:
+            d = fields.setdefault(int(row["uid"]), {})
+            for f in ("micrograph_blob/path", "micrograph_blob/psize_A"):
+                if f in names:
+                    d[f] = row[f]
+    out = []
+    for d in fields.values():
+        if "micrograph_blob/path" not in d:
+            continue
+        rel = d["micrograph_blob/path"]
+        rel = (rel.decode() if isinstance(rel, bytes) else str(rel)).lstrip(">")
+        out.append((project_dir / rel, float(d.get("micrograph_blob/psize_A", 0)) or None))
+    if not out:
+        raise SystemExit("No micrograph_blob/path in the given .cs files; include the passthrough file.")
+    return sorted(out)
